@@ -4,71 +4,84 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"time"
 
 	"github.com/diametric/rustcon/webrcon"
-	"github.com/gorilla/websocket"
 )
+
+// CommandLineConfig options
+type CommandLineConfig struct {
+	RconHost     string
+	RconPort     int
+	RconPassfile string
+	Tag          string
+}
+
+// Config file definition
+type Config struct {
+	QueuesPrefix string      `json:"queues_prefix"`
+	StaticQueues []string    `json:"static_queues"`
+	RedisConfig  RedisConfig `json:"redis"`
+}
+
+// RedisConfig settings to connect to Redis
+type RedisConfig struct {
+	Host     string `json:"hostname"`
+	Port     int    `json:"port"`
+	Database int    `json:"db"`
+	Password string `json:"password"`
+}
+
+func loadconfig() (*Config, error) {
+	info, err := os.Stat("rustcon.conf")
+
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("rustconf.conf not found")
+	}
+
+	if info.IsDir() {
+		return nil, fmt.Errorf("rustconf.conf is a directory")
+	}
+
+	file, _ := os.Open("rustcon.conf")
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	config := Config{}
+
+	err = decoder.Decode(&config)
+	if err != nil {
+		return nil, fmt.Errorf("JSON parse error: %s", err)
+	}
+
+	return &config, nil
+}
 
 func main() {
 
+	config, err := loadconfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
+
+	fmt.Println(config.QueuesPrefix)
+	fmt.Println(config.StaticQueues)
+
+	rcon := webrcon.RconClient{}
+
 	interrupt := make(chan os.Signal, 1)
 
-	rconPath := url.URL{Scheme: "ws", Host: "localhost:28030", Path: "/mypassword"}
-
-	fmt.Println("Connecting")
-
-	c, _, err := websocket.DefaultDialer.Dial(rconPath.String(), nil)
-
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-	defer c.Close()
-
-	fmt.Println("Connected.")
+	rcon.InitClient("localhost", 28030, "mypassword")
 
 	done := make(chan struct{})
+	go rcon.MaintainConnection(done)
 
 	go func() {
 		for {
-			cmd := webrcon.Command{Identifier: -1, Message: "fps", Name: "WebRcon"}
-
-			c.WriteJSON(&cmd)
+			rcon.Send("fps")
 			time.Sleep(1 * time.Second)
-		}
-	}()
-
-	go func() {
-		defer close(done)
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				return
-			}
-
-			var p webrcon.Response
-
-			fmt.Println(p)
-
-			if err := json.Unmarshal(message, &p); err != nil {
-				fmt.Println("Error decoding webrcon: ", err)
-			}
-
-			if p.Type == "Chat" {
-				var c webrcon.ChatMessage
-
-				if err := json.Unmarshal([]byte(p.Message), &c); err != nil {
-					fmt.Println("Error decoding chat json: ", err)
-					fmt.Println("JSON message: ", p.Message)
-				}
-				fmt.Printf("\nReceived chat:\nChannel: %d\nUserId: %s\nUsername: %s\nMessage: %s", c.Channel, c.UserID, c.Username, c.Message)
-			}
-
-			fmt.Printf("ID: %d, Message: %s", p.Identifier, p.Message)
-			fmt.Printf("recv: %s", message)
 		}
 	}()
 
