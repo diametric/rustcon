@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -12,10 +13,11 @@ import (
 
 // CommandLineConfig options
 type CommandLineConfig struct {
-	RconHost     string
-	RconPort     int
-	RconPassfile string
-	Tag          string
+	ConfigFile   *string
+	RconHost     *string
+	RconPort     *int
+	RconPassfile *string
+	Tag          *string
 }
 
 // Config file definition
@@ -33,18 +35,33 @@ type RedisConfig struct {
 	Password string `json:"password"`
 }
 
-func loadconfig() (*Config, error) {
-	info, err := os.Stat("rustcon.conf")
+// Same as os.Open but with some common sanity checks before it.
+func saneOpen(f string) (*os.File, error) {
+	info, err := os.Stat(f)
 
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("rustconf.conf not found")
+		return nil, fmt.Errorf("%s not found", f)
 	}
 
 	if info.IsDir() {
-		return nil, fmt.Errorf("rustconf.conf is a directory")
+		return nil, fmt.Errorf("%s is a directory", f)
 	}
 
-	file, _ := os.Open("rustcon.conf")
+	file, err := os.Open(f)
+	// Some unknown uncommon error
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
+}
+
+func loadconfig(filename string) (*Config, error) {
+	file, err := saneOpen(filename)
+	if err != nil {
+		return nil, err
+	}
+
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
@@ -58,9 +75,27 @@ func loadconfig() (*Config, error) {
 	return &config, nil
 }
 
-func main() {
+func loadrconpass(passfile string) (string, error) {
+	file, err := saneOpen(passfile)
+	if err != nil {
+		return "", err
+	}
 
-	config, err := loadconfig()
+	defer file.Close()
+
+}
+
+func main() {
+	opts := CommandLineConfig{}
+
+	opts.ConfigFile = flag.String("config", "rustcon.conf", "Path to the configuration file")
+	opts.RconHost = flag.String("hostname", "localhost", "RCON hostname")
+	opts.RconPort = flag.Int("port", 28016, "RCON port")
+	opts.RconPassfile = flag.String("passfile", ".rconpass", "Path to a file containing the RCON password")
+
+	flag.Parse()
+
+	config, err := loadconfig(*opts.ConfigFile)
 	if err != nil {
 		fmt.Println("Error loading config:", err)
 		return
@@ -73,7 +108,7 @@ func main() {
 
 	interrupt := make(chan os.Signal, 1)
 
-	rcon.InitClient("localhost", 28030, "mypassword")
+	rcon.InitClient(*opts.RconHost, *opts.RconPort, "mypassword")
 
 	done := make(chan struct{})
 	go rcon.MaintainConnection(done)
