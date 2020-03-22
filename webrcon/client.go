@@ -99,11 +99,12 @@ func (client *RconClient) Send(command string) {
 }
 
 func (client *RconClient) rconReader() {
-	log.Println("Starting up rconReader()")
+	log.Println("Starting up RCON reader")
 	for {
 		_, message, err := client.con.ReadMessage()
 		if err != nil {
-			log.Println("READ ERROR!\nread:", err)
+			log.Println("RCON Read Error!\nError:", err)
+			log.Println("Disconnecting from RCON")
 			client.disconnect()
 			return
 		}
