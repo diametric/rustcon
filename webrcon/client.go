@@ -25,6 +25,7 @@ type RconClient struct {
 	onconnect  []OnConnectCallback
 	onmessage  []OnMessageCallback
 	mu         sync.Mutex
+	cmu        sync.Mutex
 }
 
 // OnMessageCallback contains the callbacks run on every RCON message
@@ -134,6 +135,7 @@ func (client *RconClient) SendCallback(command string, callback func(response *R
 	}
 
 	client.identifier++
+	log.Printf("Set ID to %d for callback.\n", client.identifier)
 
 	cmd := Command{
 		Identifier: client.identifier,
@@ -144,7 +146,10 @@ func (client *RconClient) SendCallback(command string, callback func(response *R
 		ttl:       10,
 		timestamp: time.Now().Unix(),
 		callback:  callback}
+
+	client.cmu.Lock()
 	client.callbacks[client.identifier] = cb
+	client.cmu.Unlock()
 
 	client.writeJSON(&cmd)
 }
@@ -176,8 +181,10 @@ func (client *RconClient) rconReader() {
 			return
 		}
 
+		log.Println("Received RCON message: ", string(message))
+
 		for _, v := range client.onmessage {
-			v.Callback(message)
+			go v.Callback(message)
 		}
 
 		var p Response
@@ -186,23 +193,38 @@ func (client *RconClient) rconReader() {
 			log.Println("Error decoding webrcon: ", err)
 		}
 
+		fmt.Printf("DEBUG: %+v\n", client.callbacks)
+
 		if p.Identifier >= StartingIdentifier {
+			log.Printf("Received RCON ID %d.\n", p.Identifier)
+
+			client.cmu.Lock()
 			if val, exists := client.callbacks[p.Identifier]; exists {
+				client.cmu.Unlock()
+				log.Printf("Calling callback %+v for ID %d\n", val, p.Identifier)
 				val.callback(&p)
+				log.Printf("Callback is done.\n")
+
+				client.cmu.Lock()
 				delete(client.callbacks, p.Identifier)
+				client.cmu.Unlock()
 			} else {
+				client.cmu.Unlock()
 				log.Printf("No callback found for %d, this shouldn't happen.\n", p.Identifier)
 			}
 		}
 
+		client.cmu.Lock()
 		for i, v := range client.callbacks {
 			if v.ttl <= 0 {
 				continue
 			}
 
 			if time.Now().Unix()-v.timestamp >= int64(v.ttl) {
+				log.Printf("Expiring callback ID %d, timed out.\n", i)
 				delete(client.callbacks, i)
 			}
 		}
+		client.cmu.Unlock()
 	}
 }

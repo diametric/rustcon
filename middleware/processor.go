@@ -44,7 +44,6 @@ func (processor *Processor) InitProcessor(host string, port int, database int, p
 				return nil
 			}
 			_, err := c.Do("PING")
-			fmt.Println("Redis ping was successful")
 			return err
 		},
 	}
@@ -69,7 +68,7 @@ func (processor *Processor) Do(command string, args ...interface{}) (interface{}
 
 // We need this to pass by reference the callback or everything breaks.
 func (processor *Processor) runTickCallback(callback TickCallback) {
-	fmt.Printf("PROCESSOR: Time to run %s, interval %d\n", callback.command, callback.interval)
+	log.Printf("PROCESSOR: Time to run %s, interval %d\n", callback.command, callback.interval)
 	processor.Rcon.SendCallback(callback.command, func(response *webrcon.Response) {
 		_, err := processor.Do("SET", strings.ReplaceAll(
 			callback.storagekey,
@@ -101,6 +100,6 @@ func (processor *Processor) Process(done chan struct{}) {
 		}
 
 		time.Sleep(1 * time.Second)
-		fmt.Printf("MIDDLEWARE: Tick Count: %d\n", ticks)
+		log.Printf("MIDDLEWARE: Tick Count: %d\n", ticks)
 	}
 }
