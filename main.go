@@ -219,7 +219,6 @@ func main() {
 		}
 
 		for _, v := range config.IntervalCallbacks {
-				v.Command, v.Interval, v.StorageKey)
 			if v.Interval > 0 {
 				middleware.AddIntervalCallback(v.Command, v.Interval, v.StorageKey)
 			} else {
