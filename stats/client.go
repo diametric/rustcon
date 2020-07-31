@@ -38,7 +38,7 @@ type Stats struct {
 func (client *Client) RegisterInvokedStat(command string, scriptpath string, interval int) {
 	scriptdata, err := ioutil.ReadFile(scriptpath)
 	if err != nil {
-		fmt.Printf("Unable to load script from %s for %s, registration ignored.", scriptpath, command)
+		log.Printf("Unable to load script from %s for %s, registration ignored.\n", scriptpath, command)
 		return
 	}
 
@@ -74,8 +74,9 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 }
 
 func (client *Client) runInvokedStat(stat Stats) {
-	fmt.Printf("STATS: Running %s\n", stat.command)
+	log.Printf("STATS: Running %s\n", stat.command)
 	client.Rcon.SendCallback(stat.command, func(response *webrcon.Response) {
+		log.Printf("Running callback for %s\n", stat.command)
 		_ = stat.script.Add("_INPUT", response.Message)
 		_ = stat.script.Add("_TAG", client.Tag)
 
@@ -100,7 +101,7 @@ func (client *Client) runInvokedStat(stat Stats) {
 		if measurements != nil {
 			for _, m := range measurements.Array() {
 				mstring := fmt.Sprintf("%v", m)
-				fmt.Printf("Writing out record %s\n", mstring)
+				log.Printf("Writing out record %s\n", mstring)
 				writeAPI.WriteRecord(context.Background(), mstring)
 			}
 		} else {
@@ -123,6 +124,6 @@ func (client *Client) CollectStats(done chan struct{}) {
 		}
 
 		time.Sleep(1 * time.Second)
-		fmt.Printf("STATS: Tick Count: %d\n", ticks)
+		log.Printf("STATS: Tick Count: %d\n", ticks)
 	}
 }
