@@ -1,0 +1,8 @@
+text := import("text")
+fmt := import("fmt")
+
+// Split out the "30 FPS" string to get the value.
+parts := text.fields(_INPUT)
+
+_MEASUREMENTS := [format("serverfps,servertag=%s fps=%s", _TAG, parts[0])]
+
