@@ -20,6 +20,7 @@ type Client struct {
 	Tag      string
 	Rcon     *webrcon.RconClient
 	influxDb influxdb2.Client
+	database string
 	queue    chan string
 	stats    []Stats
 }
@@ -69,6 +70,7 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 				InsecureSkipVerify: true,
 			}))
 
+	client.database = database
 	client.queue = make(chan string)
 }
 
@@ -84,7 +86,16 @@ func (client *Client) runInvokedStat(stat Stats) {
 			return
 		}
 
-		writeAPI := client.influxDb.WriteAPIBlocking("", "blueberry_v2/autogen")
+		var bucket string
+		b := compiled.Get("_BUCKET")
+		if b == nil {
+			bucket = "autogen"
+		} else {
+			bucket = b.String()
+		}
+
+		writeAPI := client.influxDb.WriteAPIBlocking(
+			"", fmt.Sprintf("%s/%s", client.database, bucket))
 
 		measurements := compiled.Get("_MEASUREMENTS")
 		for _, m := range measurements.Array() {
