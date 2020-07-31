@@ -202,7 +202,7 @@ func (client *RconClient) rconReader() {
 			if val, exists := client.callbacks[p.Identifier]; exists {
 				client.cmu.Unlock()
 				log.Printf("Calling callback %+v for ID %d\n", val, p.Identifier)
-				val.callback(&p)
+				go val.callback(&p)
 				log.Printf("Callback is done.\n")
 
 				client.cmu.Lock()
