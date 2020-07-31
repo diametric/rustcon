@@ -24,3 +24,19 @@ type Command struct {
 	Message    string `json:"Message"`
 	Name       string `json:"Name"`
 }
+
+// The rest of these are helper structure for well known RCON outputs.
+
+// PlayerList contains the structure for the "playerlist" command in Rust
+type PlayerList struct {
+	SteamID          string  `json:"SteamID"`
+	OwnerID          string  `json:"OwnerID"`
+	DisplayName      string  `json:"DisplayName"`
+	Ping             int     `json:"Ping"`
+	Address          string  `json:"Address"`
+	ConnectedSeconds int     `json:"ConnectedSeconds"`
+	ViolationLevel   float32 `json:"VoiationLevel"`
+	Currentlevel     float32 `json:"CurrentLevel"`
+	UnspentXp        float32 `json:"UnspentXp"`
+	Health           float32 `json:"Health"`
+}
