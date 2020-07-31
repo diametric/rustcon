@@ -19,7 +19,8 @@ Example from default config:
             "interval": 1
         }
     ]
-}```
+}
+```
 
 scripts/fps.tengo:
 ```tengo
