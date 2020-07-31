@@ -1,0 +1,14 @@
+rustcon acts as a middleware application for Rust RCON connections. It provides
+the following features:
+
+- The ability to define static and dynamic queues where all RCON data is streamed in real time to Redis.
+- Basic operating statistics about the Rust server output to InfluxDB 1.8+
+- Fault tolerance, maintains a persistent connection and retries during outages to RCON.
+
+You can toggle the Redis middleware or the stats collection on or off depending on your requirements.
+
+STATS
+
+The stats collector will run arbitrary RCON commands, or watch for a regex pattern and pass the
+output of those commands or patterns into the _INPUT variable of a Tengo script.
+The script is responsible for parsing that output into usable stats.
