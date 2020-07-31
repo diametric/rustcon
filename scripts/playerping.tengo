@@ -1,0 +1,20 @@
+json := import("json")
+fmt := import("fmt")
+
+// Should contain the JSON blob from "playerlist"
+decoded := json.decode(_INPUT)
+
+pingtotal := 0
+online := len(decoded)
+
+for rec in decoded {
+    pingtotal += rec["Ping"]
+}
+
+pingavg := 0
+if online > 0 {
+    pingavg = pingtotal / online
+}
+
+_BUCKET := "ninety_days"
+_MEASUREMENTS := [format("playerping,servertag=%s ping_average=%.2f,players_online=%d", _TAG, pingavg, online)]
