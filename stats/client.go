@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"time"
 
 	"github.com/d5/tengo"
@@ -55,11 +56,9 @@ func (client *Client) RegisterInvokedStat(command string, scriptpath string, int
 
 // InitClient establishes the InfluxDB connection and sets up queues
 func (client *Client) InitClient(host string, port int, database string, username string, password string, ssl bool) {
-	var ssls string
+	var ssls string = ""
 	if ssl {
 		ssls = "s"
-	} else {
-		ssls = ""
 	}
 
 	url := fmt.Sprintf("http%s://%s:%d", ssls, host, port)
@@ -82,7 +81,7 @@ func (client *Client) runInvokedStat(stat Stats) {
 
 		compiled, err := stat.script.RunContext(context.Background())
 		if err != nil {
-			fmt.Printf("Error running tengo script: %s\n", err)
+			log.Printf("Error running tengo script: %s\n", err)
 			return
 		}
 
@@ -98,10 +97,14 @@ func (client *Client) runInvokedStat(stat Stats) {
 			"", fmt.Sprintf("%s/%s", client.database, bucket))
 
 		measurements := compiled.Get("_MEASUREMENTS")
-		for _, m := range measurements.Array() {
-			mstring := fmt.Sprintf("%v", m)
-			fmt.Printf("Writing out record %s\n", mstring)
-			writeAPI.WriteRecord(context.Background(), mstring)
+		if measurements != nil {
+			for _, m := range measurements.Array() {
+				mstring := fmt.Sprintf("%v", m)
+				fmt.Printf("Writing out record %s\n", mstring)
+				writeAPI.WriteRecord(context.Background(), mstring)
+			}
+		} else {
+			log.Printf("Warning: %s:%s returned no _MEASUREMENTS\n", stat.command, stat.scriptpath)
 		}
 	})
 }
@@ -120,5 +123,6 @@ func (client *Client) CollectStats(done chan struct{}) {
 		}
 
 		time.Sleep(1 * time.Second)
+		fmt.Printf("STATS: Tick Count: %d\n", ticks)
 	}
 }

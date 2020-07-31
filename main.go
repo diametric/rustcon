@@ -137,13 +137,12 @@ func buildOnConnectCallback(tag string, middleware middleware.Processor, cb Inte
 	return webrcon.OnConnectCallback{
 		Command: cb.Command,
 		Callback: func(response *webrcon.Response) {
-			fmt.Printf("Got callback for %s, writing to Redis\n", cb.Command)
 			_, err := middleware.Do("SET", strings.ReplaceAll(
 				cb.StorageKey,
 				"{tag}",
 				tag), response.Message)
 			if err != nil {
-				fmt.Printf("Error writing to redis in callback: %s", err)
+				log.Printf("Error writing to redis in callback: %s\n", err)
 			}
 		},
 	}
@@ -193,9 +192,6 @@ func main() {
 		return
 	}
 
-	fmt.Println(config.QueuesPrefix)
-	fmt.Println(config.StaticQueues)
-
 	rconPassword, err := loadrconpass(*opts.RconPassfile)
 	if err != nil {
 		fmt.Println("Unable to read rcon passfile: ", err)
@@ -219,17 +215,16 @@ func main() {
 
 		_, err := middleware.Do("PING")
 		if err != nil {
-			fmt.Println(err)
+			log.Println("Error connecting to redis: ", err)
 		}
 
 		for _, v := range config.IntervalCallbacks {
-			fmt.Printf("Registering callback %s with interval %d and storagekey %s\n",
 				v.Command, v.Interval, v.StorageKey)
 			if v.Interval > 0 {
 				middleware.AddIntervalCallback(v.Command, v.Interval, v.StorageKey)
 			} else {
 				if !v.RunOnConnect {
-					fmt.Printf("%s callback has 0 interval, and false run_on_connect. This callback will never run and is probably not what you intended.\n", v.Command)
+					log.Printf("%s callback has 0 interval, and false run_on_connect. This callback will never run and is probably not what you intended.\n", v.Command)
 				}
 			}
 			if v.RunOnConnect {
@@ -273,6 +268,6 @@ func main() {
 		case <-interrupt:
 			log.Print("Interrupt?")
 		}
+		log.Print("testing.")
 	}
-
 }
