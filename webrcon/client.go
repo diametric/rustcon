@@ -94,7 +94,7 @@ func (client *RconClient) runOnConnectCB(cb OnConnectCallback) {
 }
 
 func (client *RconClient) connect() error {
-	fmt.Printf("Connecting to %s\n", client.rconPath)
+	log.Printf("Connecting to %s\n", client.rconPath)
 	con, _, err := websocket.DefaultDialer.Dial(client.rconPath, nil)
 	if err != nil {
 		return fmt.Errorf("Error connecting to RCON: %s", err)
@@ -102,9 +102,7 @@ func (client *RconClient) connect() error {
 	client.con = con
 	client.Connected = true
 
-	fmt.Println("Running OnConnect callbacks")
 	for _, v := range client.onconnect {
-		fmt.Printf("-> Running %s\n", v.Command)
 		client.runOnConnectCB(v)
 	}
 
@@ -115,7 +113,7 @@ func (client *RconClient) disconnect() {
 	log.Println("Disconnecting RCON client")
 	err := client.con.Close()
 	if err != nil {
-		fmt.Println("Error closing connection:", err)
+		log.Println("Error closing connection:", err)
 	}
 
 	client.Connected = false
@@ -185,30 +183,24 @@ func (client *RconClient) rconReader() {
 		var p Response
 
 		if err := json.Unmarshal(message, &p); err != nil {
-			fmt.Println("Error decoding webrcon: ", err)
+			log.Println("Error decoding webrcon: ", err)
 		}
 
 		if p.Identifier >= StartingIdentifier {
-			fmt.Println("Caught callback")
 			if val, exists := client.callbacks[p.Identifier]; exists {
 				val.callback(&p)
 				delete(client.callbacks, p.Identifier)
 			} else {
-				fmt.Printf("No callback found for %d, this shouldn't happen.", p.Identifier)
+				log.Printf("No callback found for %d, this shouldn't happen.\n", p.Identifier)
 			}
 		}
 
-		fmt.Printf("ID %d, Message: %s\n", p.Identifier, p.Message)
-		fmt.Printf("Raw: %s\n", message)
-
-		fmt.Println("Expiring old callbacks")
 		for i, v := range client.callbacks {
 			if v.ttl <= 0 {
 				continue
 			}
 
 			if time.Now().Unix()-v.timestamp >= int64(v.ttl) {
-				fmt.Printf("-> Expiring %d\n", i)
 				delete(client.callbacks, i)
 			}
 		}

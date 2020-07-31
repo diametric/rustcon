@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -63,9 +64,6 @@ func (processor *Processor) Do(command string, args ...interface{}) (interface{}
 	conn := processor.pool.Get()
 	defer conn.Close()
 
-	fmt.Printf("Running redis command %s, with args: ", command)
-	fmt.Println(args...)
-
 	return conn.Do(command, args...)
 }
 
@@ -73,13 +71,12 @@ func (processor *Processor) Do(command string, args ...interface{}) (interface{}
 func (processor *Processor) runTickCallback(callback TickCallback) {
 	fmt.Printf("PROCESSOR: Time to run %s, interval %d\n", callback.command, callback.interval)
 	processor.Rcon.SendCallback(callback.command, func(response *webrcon.Response) {
-		fmt.Printf("Got callback for %s, writing to Redis\n", callback.command)
 		_, err := processor.Do("SET", strings.ReplaceAll(
 			callback.storagekey,
 			"{tag}",
 			processor.Tag), response.Message)
 		if err != nil {
-			fmt.Printf("Error writing to redis in callback: %s", err)
+			log.Printf("Error writing to redis in callback: %s\n", err)
 		}
 	})
 }
@@ -104,6 +101,6 @@ func (processor *Processor) Process(done chan struct{}) {
 		}
 
 		time.Sleep(1 * time.Second)
-		fmt.Printf("Tick Count: %d\n", ticks)
+		fmt.Printf("MIDDLEWARE: Tick Count: %d\n", ticks)
 	}
 }
