@@ -80,7 +80,7 @@ func (client *Client) runInvokedStat(stat Stats) {
 		_ = stat.script.Add("_INPUT", response.Message)
 		_ = stat.script.Add("_TAG", client.Tag)
 
-		compiled, err := stat.script.RunContext(context.Background())
+		compiled, err := stat.script.Run()
 		if err != nil {
 			log.Printf("Error running tengo script: %s\n", err)
 			return
