@@ -75,7 +75,7 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 
 func (client *Client) runInvokedStat(stat Stats) {
 	log.Printf("STATS: Running %s\n", stat.command)
-	client.Rcon.SendCallback(stat.command, func(response *webrcon.Response) {
+	client.Rcon.SendCallback(stat.command, stat.interval-1, func(response *webrcon.Response) {
 		log.Printf("Running callback for %s\n", stat.command)
 		_ = stat.script.Add("_INPUT", response.Message)
 		_ = stat.script.Add("_TAG", client.Tag)

@@ -69,7 +69,7 @@ func (processor *Processor) Do(command string, args ...interface{}) (interface{}
 // We need this to pass by reference the callback or everything breaks.
 func (processor *Processor) runTickCallback(callback TickCallback) {
 	log.Printf("PROCESSOR: Time to run %s, interval %d\n", callback.command, callback.interval)
-	processor.Rcon.SendCallback(callback.command, func(response *webrcon.Response) {
+	processor.Rcon.SendCallback(callback.command, callback.interval-1, func(response *webrcon.Response) {
 		_, err := processor.Do("SET", strings.ReplaceAll(
 			callback.storagekey,
 			"{tag}",
