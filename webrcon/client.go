@@ -26,6 +26,14 @@ type RconClient struct {
 	onmessage  []OnMessageCallback
 	mu         sync.Mutex
 	cmu        sync.Mutex
+	cachemu    sync.Mutex
+	cache      map[string]commandCache
+}
+
+type commandCache struct {
+	ttl       int
+	timestamp int64
+	response  *Response
 }
 
 // OnMessageCallback contains the callbacks run on every RCON message
@@ -47,6 +55,22 @@ type RconCallback struct {
 	callback  func(response *Response)
 }
 
+func (client *RconClient) checkCache(command string) *Response {
+	client.cachemu.Lock()
+	defer client.cachemu.Unlock()
+
+	if cacheData, ok := client.cache[command]; ok {
+		if time.Now().Unix()-cacheData.timestamp >= int64(cacheData.ttl) {
+			delete(client.cache, command)
+			return nil
+		}
+
+		return cacheData.response
+	}
+
+	return nil
+}
+
 // InitClient sets up the RconClient
 func (client *RconClient) InitClient(host string, port int, password string) {
 	client.rconPath = fmt.Sprintf("ws://%s:%d/%s", host, port, password)
@@ -54,6 +78,7 @@ func (client *RconClient) InitClient(host string, port int, password string) {
 	// Default initial identifier value
 	client.identifier = StartingIdentifier
 	client.callbacks = make(map[int]RconCallback)
+	client.cache = make(map[string]commandCache)
 	client.Connected = false
 
 	log.Printf("Initialized RCON client to %s:%d", host, port)
@@ -91,7 +116,7 @@ func (client *RconClient) OnMessage(cb OnMessageCallback) {
 }
 
 func (client *RconClient) runOnConnectCB(cb OnConnectCallback) {
-	client.SendCallback(cb.Command, cb.Callback)
+	client.SendCallback(cb.Command, 0, cb.Callback)
 }
 
 func (client *RconClient) connect() error {
@@ -127,8 +152,29 @@ func (client *RconClient) writeJSON(v interface{}) error {
 	return client.con.WriteJSON(v)
 }
 
+func (client *RconClient) cacheWrapper(command string, cacheFor int, cb func(response *Response)) func(response *Response) {
+	return func(response *Response) {
+		if cacheFor > 0 {
+			client.cachemu.Lock()
+			client.cache[command] = commandCache{
+				timestamp: time.Now().Unix(),
+				ttl:       cacheFor,
+				response:  response,
+			}
+			client.cachemu.Unlock()
+		}
+		cb(response)
+	}
+}
+
 // SendCallback sends a command with a callback
-func (client *RconClient) SendCallback(command string, callback func(response *Response)) {
+func (client *RconClient) SendCallback(command string, cacheFor int, callback func(response *Response)) {
+	// Short-circuit the whole process, callback on the cached results.
+	cacheData := client.checkCache(command)
+	if cacheData != nil {
+		go callback(cacheData)
+	}
+
 	if !client.Connected {
 		log.Println("Client is disconnected, unable to send command.")
 		return
@@ -145,7 +191,7 @@ func (client *RconClient) SendCallback(command string, callback func(response *R
 	cb := RconCallback{
 		ttl:       10,
 		timestamp: time.Now().Unix(),
-		callback:  callback}
+		callback:  client.cacheWrapper(command, cacheFor, callback)}
 
 	client.cmu.Lock()
 	client.callbacks[client.identifier] = cb
