@@ -1,0 +1,32 @@
+json := import("json")
+fmt := import("fmt")
+text := import("text")
+
+// Should contain the JSON blob from "serverinfo"
+decoded := json.decode(_INPUT)
+
+tags := [format("servertag=%s", _TAG)]
+fields := []
+
+for k, v in decoded {
+    if k == "GameTime" || k == "Hostname" {
+        continue
+    }
+
+    if k == "SaveCreatedTime" {
+        tags = append(tags, format("%s=%s", k, text.replace(v, " ", "\\ ", len(v))))
+    } else {
+        if is_float(v) {
+            fields = append(fields, format("%s=%.2f", k, v))
+        } else if is_bool(v) {
+            fields = append(fields, format("%s=%t", k, v))
+        } else {
+            // Everything else is a string value.
+            fields = append(fields, format("%s=\"%s\"", k, v))
+        }
+    }
+}
+
+_BUCKET := "ninety_days"
+_MEASUREMENTS := [format("serverinfo,%s %s", text.join(tags, ","), text.join(fields, ","))]
+
