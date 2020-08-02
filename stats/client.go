@@ -178,10 +178,21 @@ func (client *Client) OnMessageMonitoredStat(message []byte) {
 
 	for _, v := range client.monitoredStats {
 		log.Printf("MONITORED STATS: Checking if %s matches %s\n", v.pattern, r.Message)
-		re := v.patternCompiled.FindSubmatch([]byte(r.Message))
+		re := v.patternCompiled.FindStringSubmatch(r.Message)
 		if re != nil {
-			_ = v.script.Add("_MATCHES", re)
-			_ = v.script.Add("_RESPONSE", structs.Map(r))
+			converted := make([]interface{}, len(re))
+			for i, vv := range re {
+				converted[i] = vv
+			}
+
+			err := v.script.Add("_MATCHES", converted)
+			if err != nil {
+				log.Println("STATS: Unable to add _MATCHES variable to script: ", err)
+			}
+			err = v.script.Add("_RESPONSE", structs.Map(r))
+			if err != nil {
+				log.Println("STATS: Unable to add _RESPONSE variable to script: ", err)
+			}
 
 			client.runScript(v.script)
 		}
