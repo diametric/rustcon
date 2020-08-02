@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -51,6 +52,8 @@ func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
 		scriptpath:      scriptpath,
 		script:          script,
 	})
+
+	log.Printf("Registered monitored stat, pattern = %s, script = %s\n", pattern, scriptpath)
 }
 
 // RegisterInternalStat registers an internal type stat.
@@ -66,6 +69,8 @@ func (client *Client) RegisterInternalStat(scriptpath string, interval int) {
 		scriptpath: scriptpath,
 		script:     script,
 	})
+
+	log.Printf("Registered internal stat, interval = %d, script = %s\n", interval, scriptpath)
 }
 
 // RegisterInvokedStat registers an invoked type stat.
@@ -82,6 +87,9 @@ func (client *Client) RegisterInvokedStat(command string, scriptpath string, int
 		scriptpath: scriptpath,
 		script:     script,
 	})
+
+	log.Printf("Registered invoked stat, command = %s, interval = %d, script = %s\n", command, interval, scriptpath)
+
 }
 
 // InitClient establishes the InfluxDB connection and sets up queues
@@ -157,6 +165,27 @@ func (client *Client) runInvokedStat(stat Stats) {
 		_ = stat.script.Add("_INPUT", response.Message)
 		client.runScript(stat.script)
 	})
+}
+
+// OnMessageMonitoredStat implements the RCON client OnMessage callback, to be
+// used for Monitored Stats.
+func (client *Client) OnMessageMonitoredStat(message []byte) {
+	var r webrcon.Response
+
+	if err := json.Unmarshal(message, &r); err != nil {
+		log.Println("Error decoding RCON websocket response in OnMessage callback, this shouldn't should never happen here.")
+	}
+
+	for _, v := range client.monitoredStats {
+		log.Printf("MONITORED STATS: Checking if %s matches %s\n", v.pattern, r.Message)
+		re := v.patternCompiled.FindSubmatch([]byte(r.Message))
+		if re != nil {
+			_ = v.script.Add("_MATCHES", re)
+			_ = v.script.Add("_RESPONSE", structs.Map(r))
+
+			client.runScript(v.script)
+		}
+	}
 }
 
 // CollectStats begins running the configured stats.

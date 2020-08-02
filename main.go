@@ -266,6 +266,13 @@ func main() {
 			statsclient.RegisterInternalStat(v.Script, v.Interal)
 		}
 
+		for _, v := range config.StatsConfig.Monitored {
+			statsclient.RegisterMonitoredStat(v.Pattern, v.Script)
+		}
+
+		rcon.OnMessage(webrcon.OnMessageCallback{
+			Callback: statsclient.OnMessageMonitoredStat})
+
 		go statsclient.CollectStats(done)
 	}
 
