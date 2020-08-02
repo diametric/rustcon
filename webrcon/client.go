@@ -15,10 +15,24 @@ const (
 	StartingIdentifier = 1000
 )
 
+// RconStats holds various stats about the operation of the RCON client.
+type RconStats struct {
+	CommandsRun        int
+	CommandTimeouts    int
+	Disconnects        int
+	Messages           int
+	CacheHits          int
+	CacheMisses        int
+	OnConnectCallback  int
+	OnMessageCallbacks int
+	OnInvokeCallbacks  int
+}
+
 // RconClient maintains the connection to the Rust server.
 type RconClient struct {
 	Connected             bool
 	CallOnMessageOnInvoke bool
+	Stats                 RconStats
 	identifier            int
 	rconPath              string
 	con                   *websocket.Conn
@@ -63,12 +77,15 @@ func (client *RconClient) checkCache(command string) *Response {
 	if cacheData, ok := client.cache[command]; ok {
 		if time.Now().Unix()-cacheData.timestamp >= int64(cacheData.ttl) {
 			delete(client.cache, command)
+			client.Stats.CacheMisses++
 			return nil
 		}
 
+		client.Stats.CacheHits++
 		return cacheData.response
 	}
 
+	client.Stats.CacheMisses++
 	return nil
 }
 
@@ -81,6 +98,7 @@ func (client *RconClient) InitClient(host string, port int, password string) {
 	client.callbacks = make(map[int]RconCallback)
 	client.cache = make(map[string]commandCache)
 	client.Connected = false
+	client.Stats = RconStats{}
 
 	log.Printf("Initialized RCON client to %s:%d", host, port)
 }
@@ -137,6 +155,8 @@ func (client *RconClient) connect() error {
 }
 
 func (client *RconClient) disconnect() {
+	client.Stats.Disconnects++
+
 	log.Println("Disconnecting RCON client")
 	err := client.con.Close()
 	if err != nil {
@@ -174,6 +194,7 @@ func (client *RconClient) SendCallback(command string, cacheFor int, callback fu
 	cacheData := client.checkCache(command)
 	if cacheData != nil {
 		go callback(cacheData)
+		return
 	}
 
 	if !client.Connected {
@@ -199,6 +220,8 @@ func (client *RconClient) SendCallback(command string, cacheFor int, callback fu
 	client.cmu.Unlock()
 
 	client.writeJSON(&cmd)
+
+	client.Stats.CommandsRun++
 }
 
 // Send a command with no callback
@@ -214,6 +237,8 @@ func (client *RconClient) Send(command string) {
 		Name:       "WebRcon"}
 
 	client.writeJSON(&cmd)
+
+	client.Stats.CommandsRun++
 }
 
 func (client *RconClient) rconReader() {
@@ -222,6 +247,8 @@ func (client *RconClient) rconReader() {
 	log.Println("Starting up RCON reader")
 	for {
 		_, message, err := client.con.ReadMessage()
+
+		client.Stats.Messages++
 
 		if err != nil {
 			log.Println("RCON Read Error!\nError:", err)
@@ -279,6 +306,7 @@ func (client *RconClient) rconReader() {
 			if time.Now().Unix()-v.timestamp >= int64(v.ttl) {
 				log.Printf("Expiring callback ID %d, timed out.\n", i)
 				delete(client.callbacks, i)
+				client.Stats.CommandTimeouts++
 			}
 		}
 		client.cmu.Unlock()
