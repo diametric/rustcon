@@ -40,8 +40,15 @@ type Config struct {
 
 // StatsConfig definition
 type StatsConfig struct {
+	Internal  []InternalStatsConfig
 	Invoked   []InvokedStatConfig
 	Monitored []MonitoredStatConfig
+}
+
+// InternalStatsConfig definition
+type InternalStatsConfig struct {
+	Script  string `json:"script"`
+	Interal int    `json:"interval"`
 }
 
 // InvokedStatConfig definition
@@ -253,6 +260,10 @@ func main() {
 
 		for _, v := range config.StatsConfig.Invoked {
 			statsclient.RegisterInvokedStat(v.Command, v.Script, v.Interval)
+		}
+
+		for _, v := range config.StatsConfig.Internal {
+			statsclient.RegisterInternalStat(v.Script, v.Interal)
 		}
 
 		go statsclient.CollectStats(done)
