@@ -235,7 +235,8 @@ func (client *RconClient) rconReader() {
 		var p Response
 
 		if err := json.Unmarshal(message, &p); err != nil {
-			log.Println("Error decoding webrcon: ", err)
+			log.Println("Error decoding RCON websocket response: ", err)
+			continue
 		}
 
 		fmt.Printf("DEBUG: %+v\n", client.callbacks)
