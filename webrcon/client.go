@@ -148,6 +148,7 @@ func (client *RconClient) connect() error {
 	client.Connected = true
 
 	for _, v := range client.onconnect {
+		client.Stats.OnConnectCallback++
 		client.runOnConnectCB(v)
 	}
 
@@ -277,6 +278,7 @@ func (client *RconClient) rconReader() {
 			if val, exists := client.callbacks[p.Identifier]; exists {
 				client.cmu.Unlock()
 				log.Printf("Calling callback %+v for ID %d\n", val, p.Identifier)
+				client.Stats.OnInvokeCallbacks++
 				go val.callback(&p)
 				log.Printf("Callback is done.\n")
 
@@ -293,6 +295,7 @@ func (client *RconClient) rconReader() {
 
 		if sendOnMessage {
 			for _, v := range client.onmessage {
+				client.Stats.OnMessageCallbacks++
 				go v.Callback(message)
 			}
 		}
