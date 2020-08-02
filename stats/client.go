@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
-	"sync"
 	"time"
 
 	"github.com/d5/tengo"
@@ -18,40 +17,6 @@ import (
 
 	influxdb2 "github.com/influxdata/influxdb-client-go"
 )
-
-// Client maintains the InfluxDB client connection
-type Client struct {
-	Tag           string
-	Rcon          *webrcon.RconClient
-	influxDb      influxdb2.Client
-	database      string
-	stats         []Stats
-	internalStats []InternalStats
-	tengoGlobals  map[string]interface{}
-	tengomu       sync.Mutex
-}
-
-// InternalStats stats, or rather stats that just run at an interval with not RCON command.
-type InternalStats struct {
-	interval   int
-	scriptpath string
-	script     *tengo.Script
-}
-
-// MonitoredStats style stats.
-type MonitoredStats struct {
-	pattern    *regexp.Regexp
-	scriptpath string
-	script     *tengo.Script
-}
-
-// Stats contains the configured stats plugins
-type Stats struct {
-	interval   int
-	command    string
-	scriptpath string
-	script     *tengo.Script
-}
 
 func (client *Client) getScript(scriptpath string) (*tengo.Script, error) {
 	scriptdata, err := ioutil.ReadFile(scriptpath)
@@ -64,6 +29,28 @@ func (client *Client) getScript(scriptpath string) (*tengo.Script, error) {
 	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
 
 	return script, nil
+}
+
+// RegisterMonitoredStat registers a stat based on monitoring the RCON data.
+func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
+	script, err := client.getScript(scriptpath)
+	if err != nil {
+		fmt.Printf("Unable to add internal stat %s, error reading script: %s", scriptpath, err)
+		return
+	}
+
+	compiled, err := regexp.Compile(pattern)
+	if err != nil {
+		fmt.Printf("Unable to compile monitored regex %s: %s\n", pattern, err)
+		return
+	}
+
+	client.monitoredStats = append(client.monitoredStats, MonitoredStats{
+		pattern:         pattern,
+		patternCompiled: compiled,
+		scriptpath:      scriptpath,
+		script:          script,
+	})
 }
 
 // RegisterInternalStat registers an internal type stat.
