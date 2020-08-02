@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/d5/tengo"
@@ -143,11 +144,12 @@ func (client *Client) runScript(script *tengo.Script) {
 
 	measurements := compiled.Get("_MEASUREMENTS")
 	if measurements != nil {
+		var linedata strings.Builder
 		for _, m := range measurements.Array() {
-			mstring := fmt.Sprintf("%v", m)
-			log.Printf("Writing out record %s\n", mstring)
-			writeAPI.WriteRecord(context.Background(), mstring)
+			linedata.WriteString(fmt.Sprintf("%v\n", m))
 		}
+
+		writeAPI.WriteRecord(context.Background(), linedata.String())
 	}
 }
 

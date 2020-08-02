@@ -1,0 +1,26 @@
+text := import("text")
+fmt := import("fmt")
+
+lineendings := "\n"
+
+// Rust will return line endings based on the OS it's running on.  We default to
+// \n for Linux, and if we find \r\n, we convert to that.
+if text.contains(_INPUT, "\r\n") {
+    lineendings = "\r\n"
+}
+
+_MEASUREMENTS := []
+parsed := text.split(_INPUT, lineendings)
+
+fmt.printf("PARSED: %v\n", parsed)
+
+for a:=0; a<len(parsed)-1; a+=3 {
+    fieldvalue := text.replace(parsed[a], " ", "\\ ", len(parsed[a]))
+    fmt.printf("FIELDVALUE = %s\n", fieldvalue)
+
+    currentmax := text.split(text.substr(parsed[a+1], text.index(parsed[a+1], " ")+1, len(parsed[a+1])), "/")
+    // We ignore a+2 it should just be whitespace.
+
+    _MEASUREMENTS = append(_MEASUREMENTS, format("spawn_report,servertag=%s,object=%s current=%s,max=%s", _TAG, fieldvalue, currentmax[0], currentmax[1]))
+}
+
