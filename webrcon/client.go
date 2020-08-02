@@ -17,17 +17,18 @@ const (
 
 // RconClient maintains the connection to the Rust server.
 type RconClient struct {
-	Connected  bool
-	identifier int
-	rconPath   string
-	con        *websocket.Conn
-	callbacks  map[int]RconCallback
-	onconnect  []OnConnectCallback
-	onmessage  []OnMessageCallback
-	mu         sync.Mutex
-	cmu        sync.Mutex
-	cachemu    sync.Mutex
-	cache      map[string]commandCache
+	Connected             bool
+	CallOnMessageOnInvoke bool
+	identifier            int
+	rconPath              string
+	con                   *websocket.Conn
+	callbacks             map[int]RconCallback
+	onconnect             []OnConnectCallback
+	onmessage             []OnMessageCallback
+	mu                    sync.Mutex
+	cmu                   sync.Mutex
+	cachemu               sync.Mutex
+	cache                 map[string]commandCache
 }
 
 type commandCache struct {
@@ -216,6 +217,8 @@ func (client *RconClient) Send(command string) {
 }
 
 func (client *RconClient) rconReader() {
+	var sendOnMessage bool = true
+
 	log.Println("Starting up RCON reader")
 	for {
 		_, message, err := client.con.ReadMessage()
@@ -229,10 +232,6 @@ func (client *RconClient) rconReader() {
 
 		log.Println("Received RCON message: ", string(message))
 
-		for _, v := range client.onmessage {
-			go v.Callback(message)
-		}
-
 		var p Response
 
 		if err := json.Unmarshal(message, &p); err != nil {
@@ -242,6 +241,8 @@ func (client *RconClient) rconReader() {
 		fmt.Printf("DEBUG: %+v\n", client.callbacks)
 
 		if p.Identifier >= StartingIdentifier {
+			sendOnMessage = client.CallOnMessageOnInvoke
+
 			log.Printf("Received RCON ID %d.\n", p.Identifier)
 
 			client.cmu.Lock()
@@ -257,6 +258,14 @@ func (client *RconClient) rconReader() {
 			} else {
 				client.cmu.Unlock()
 				log.Printf("No callback found for %d, this shouldn't happen.\n", p.Identifier)
+			}
+		} else {
+			sendOnMessage = true
+		}
+
+		if sendOnMessage {
+			for _, v := range client.onmessage {
+				go v.Callback(message)
 			}
 		}
 

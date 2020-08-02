@@ -1,5 +1,4 @@
 json := import("json")
-fmt := import("fmt")
 
 // Should contain the JSON blob from "playerlist"
 decoded := json.decode(_INPUT)
