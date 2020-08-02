@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/d5/tengo"
@@ -18,12 +19,13 @@ import (
 
 // Client maintains the InfluxDB client connection
 type Client struct {
-	Tag      string
-	Rcon     *webrcon.RconClient
-	influxDb influxdb2.Client
-	database string
-	queue    chan string
-	stats    []Stats
+	Tag          string
+	Rcon         *webrcon.RconClient
+	influxDb     influxdb2.Client
+	database     string
+	stats        []Stats
+	tengoGlobals map[string]interface{}
+	tengomu      sync.Mutex
 }
 
 // Stats contains the configured stats plugins
@@ -70,7 +72,7 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 			}))
 
 	client.database = database
-	client.queue = make(chan string)
+	client.tengoGlobals = make(map[string]interface{})
 }
 
 func (client *Client) runInvokedStat(stat Stats) {
@@ -80,11 +82,19 @@ func (client *Client) runInvokedStat(stat Stats) {
 		_ = stat.script.Add("_INPUT", response.Message)
 		_ = stat.script.Add("_TAG", client.Tag)
 
+		client.tengomu.Lock()
+		_ = stat.script.Add("_GLOBALS", client.tengoGlobals)
+		client.tengomu.Unlock()
+
 		compiled, err := stat.script.Run()
 		if err != nil {
 			log.Printf("Error running tengo script: %s\n", err)
 			return
 		}
+
+		client.tengomu.Lock()
+		client.tengoGlobals = compiled.Get("_GLOBALS").Map()
+		client.tengomu.Unlock()
 
 		var bucket string
 		b := compiled.Get("_BUCKET")
