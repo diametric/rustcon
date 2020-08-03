@@ -1,0 +1,1 @@
+_MEASUREMENTS := [format("rustcon_runtime,servertag=%s alloc=%d,totalAloc=%d,sys=%d,numGC=%d", _TAG, _RUNTIME_STATS["alloc"], _RUNTIME_STATS["totalAlloc"], _RUNTIME_STATS["sys"], _RUNTIME_STATS["numGC"])]

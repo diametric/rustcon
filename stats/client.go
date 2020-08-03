@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -183,7 +184,19 @@ func (client *Client) runInternalStat(stat *InternalStats) {
 		stat.modTime = modtime
 	}
 
-	//_ = stat.script.Add("_INTERNAL_STATS", structs.Map())
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	runtimeMem := make(map[string]interface{})
+	runtimeMem["alloc"] = int64(m.Alloc)
+	runtimeMem["totalAlloc"] = int64(m.TotalAlloc)
+	runtimeMem["sys"] = int64(m.Sys)
+	runtimeMem["numGC"] = int64(m.NumGC)
+
+	err := stat.script.Add("_RUNTIME_STATS", runtimeMem)
+	if err != nil {
+		log.Println("ERROR: Couldn't populate _RUNTIME_STATS: ", err)
+	}
 	_ = stat.script.Add("_RCON_STATS", structs.Map(client.Rcon.Stats))
 
 	client.runScript(stat.script)
