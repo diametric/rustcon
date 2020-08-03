@@ -193,6 +193,7 @@ func (client *Client) runInternalStat(stat *InternalStats) {
 	runtimeMem["sys"] = int64(m.Sys)
 	runtimeMem["numGC"] = int64(m.NumGC)
 
+	stat.script.Add("_SCRIPT_TYPE", "internal")
 	err := stat.script.Add("_RUNTIME_STATS", runtimeMem)
 	if err != nil {
 		log.Println("ERROR: Couldn't populate _RUNTIME_STATS: ", err)
@@ -218,6 +219,7 @@ func (client *Client) runInvokedStat(stat *Stats) {
 		}
 
 		log.Printf("Running callback for %s\n", stat.command)
+		_ = stat.script.Add("_SCRIPT_TYPE", "invoked")
 		_ = stat.script.Add("_INPUT", response.Message)
 		client.runScript(stat.script)
 	})
@@ -253,6 +255,7 @@ func (client *Client) OnMessageMonitoredStat(message []byte) {
 				converted[i] = vv
 			}
 
+			_ = v.script.Add("_SCRIPT_TYPE", "monitored")
 			err := v.script.Add("_MATCHES", converted)
 			if err != nil {
 				log.Println("STATS: Unable to add _MATCHES variable to script: ", err)

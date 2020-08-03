@@ -1,0 +1,71 @@
+// Example stats script. Scripts are written usnig the Tengo language, find
+// more information on Tengo here:
+//
+// https://github.com/d5/tengo
+//
+// All Tengo standard libraries are available to import().
+
+fmt := import("fmt")
+
+fmt.println("Hello world!")
+
+// All scripts have a special _GLOBALS map variable available to set data to
+// persist between invocations of all types of scripts.
+
+_GLOBALS["hello"] = "I'll exist next time too."
+if is_undefined(_GLOBALS["inc"]) {
+    _GLOBALS["inc"] = 0
+} else {
+    _GLOBALS["inc"]++
+}
+fmt.printf("Counter incremented to %d\n", _GLOBALS["inc"])
+
+// A _SCRIPT_TYPE variable exists in all scripts to define which type of
+// script it is.
+
+fmt.printf("Hello, I'm a %s type script.\n", _SCRIPT_TYPE)
+
+// A _TAG variable exists in all scripts that holds the value of the
+// --tag command line option.
+
+fmt.printf("I'm tagged with %s\n", _TAG)
+
+// There are three types of stats: internal, invoked, monitored
+
+// internal: These scripts have two variables available to them:
+// _RCON_STATS (map with string keys, int values)
+// _RUNTIME_STATS (map with string keys, int64 values)
+
+if _SCRIPT_TYPE == "internal" {
+    fmt.printf("_RCON_STATS contains the RCON client stats: %v\n", _RCON_STATS)
+    fmt.printf("_RUNTIME_STATS contains go runtime stats: %v\n", _RUNTIME_STATS)
+}
+
+// invoked: These scripts are run by invoking an RCON command, and passing its
+// output to the _INPUT variable of the script.
+
+if _SCRIPT_TYPE == "invoked" {
+    fmt.printf("_INPUT contains the RCON command's output: %s\n", _INPUT)
+}
+
+// monitored: These scripts are invoked on a pattern match against the incoming
+// data from the RCON connection. They define two variables, _MATCHES and _RESPONSE
+// _RESPONSE contains a map format of the following go struct:
+//
+// type Response struct {
+//	 Message    string `json:"Message"`
+//	 Identifier int    `json:"Identifier"`
+//	 Type       string `json:"Type"`
+//	 Stacktrace string `json:"Stacktrace"`
+// }
+
+if _SCRIPT_TYPE == "monitored" {
+    fmt.printf("_MATCHES contains the matches from the regex pattern: %v\n", _MATCHES)
+    fmt.printf("_RESPONSE contain the Response map: %v\n", _RESPONSE)
+}
+
+// Finally, all scripts should return an array of InfluxDB measurements.
+// Each element of the array should contain a string in InfluxDB line protocol format:
+// https://docs.influxdata.com/influxdb/v1.8/write_protocols/line_protocol_tutorial/
+
+_MEASUREMENTS = [format("measurementname,servertag=%s fieldvalue=1", _TAG)]
