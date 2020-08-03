@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/diametric/rustcon/middleware"
 	"github.com/diametric/rustcon/stats"
 	"github.com/diametric/rustcon/version"
@@ -199,6 +201,10 @@ func main() {
 		return
 	}
 
+	logger, _ := zap.NewProduction()
+	undo := zap.ReplaceGlobals(logger)
+	defer undo()
+
 	rconPassword, err := loadrconpass(*opts.RconPassfile)
 	if err != nil {
 		fmt.Println("Unable to read rcon passfile: ", err)
@@ -222,7 +228,7 @@ func main() {
 
 		_, err := middleware.Do("PING")
 		if err != nil {
-			log.Println("Error connecting to redis: ", err)
+			zap.S().Error("Error while connecting to redis: ", err)
 		}
 
 		for _, v := range config.IntervalCallbacks {
