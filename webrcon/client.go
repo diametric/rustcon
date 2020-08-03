@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 const (
@@ -100,7 +101,7 @@ func (client *RconClient) InitClient(host string, port int, password string) {
 	client.Connected = false
 	client.Stats = RconStats{}
 
-	log.Printf("Initialized RCON client to %s:%d", host, port)
+	zap.S().Infof("Initialized RCON client to %s:%d", host, port)
 }
 
 // MaintainConnection is intended to be run as a goroutine and will loop
@@ -113,10 +114,10 @@ func (client *RconClient) MaintainConnection(done chan struct{}) {
 			continue
 		}
 
-		log.Println("Connecting to RCON")
+		zap.S().Info("Connecting to RCON")
 		err := client.connect()
 		if err != nil {
-			log.Println("Error connecting to RCON:", err)
+			zap.S().Error("Error connecting to RCON: ", err)
 			time.Sleep(5 * time.Second)
 		} else {
 			go client.rconReader()
