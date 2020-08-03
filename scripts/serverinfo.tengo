@@ -1,5 +1,4 @@
 json := import("json")
-fmt := import("fmt")
 text := import("text")
 
 // Should contain the JSON blob from "serverinfo"

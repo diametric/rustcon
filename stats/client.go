@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -19,6 +20,22 @@ import (
 
 	influxdb2 "github.com/influxdata/influxdb-client-go"
 )
+
+func (client *Client) checkNeedReload(scriptpath string, modTime int64) (bool, int64) {
+	file, err := os.Stat(scriptpath)
+	if err != nil {
+		log.Printf("Error checking file modification time for reload on %s: %s", scriptpath, err)
+		// We don't want to try to reload the script if doing so would fail. Since
+		// we can't Stat() it, likely we can't read it either.
+		return false, 0
+	}
+
+	if modTime != file.ModTime().Unix() {
+		return true, file.ModTime().Unix()
+	}
+
+	return false, 0
+}
 
 func (client *Client) getScript(scriptpath string) (*tengo.Script, error) {
 	scriptdata, err := ioutil.ReadFile(scriptpath)
@@ -47,7 +64,7 @@ func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
 		return
 	}
 
-	client.monitoredStats = append(client.monitoredStats, MonitoredStats{
+	client.monitoredStats = append(client.monitoredStats, &MonitoredStats{
 		pattern:         pattern,
 		patternCompiled: compiled,
 		scriptpath:      scriptpath,
@@ -65,7 +82,7 @@ func (client *Client) RegisterInternalStat(scriptpath string, interval int) {
 		return
 	}
 
-	client.internalStats = append(client.internalStats, InternalStats{
+	client.internalStats = append(client.internalStats, &InternalStats{
 		interval:   interval,
 		scriptpath: scriptpath,
 		script:     script,
@@ -82,7 +99,7 @@ func (client *Client) RegisterInvokedStat(command string, scriptpath string, int
 		return
 	}
 
-	client.stats = append(client.stats, Stats{
+	client.stats = append(client.stats, &Stats{
 		interval:   interval,
 		command:    command,
 		scriptpath: scriptpath,
@@ -153,16 +170,40 @@ func (client *Client) runScript(script *tengo.Script) {
 	}
 }
 
-func (client *Client) runInternalStat(stat InternalStats) {
+func (client *Client) runInternalStat(stat *InternalStats) {
+	if needs, modtime := client.checkNeedReload(stat.scriptpath, stat.modTime); needs {
+		var err error
+
+		stat.script, err = client.getScript(stat.scriptpath)
+		if err != nil {
+			log.Printf("Error reloading new script %s: %s\n", stat.scriptpath, err)
+			return
+		}
+
+		stat.modTime = modtime
+	}
+
 	//_ = stat.script.Add("_INTERNAL_STATS", structs.Map())
 	_ = stat.script.Add("_RCON_STATS", structs.Map(client.Rcon.Stats))
 
 	client.runScript(stat.script)
 }
 
-func (client *Client) runInvokedStat(stat Stats) {
+func (client *Client) runInvokedStat(stat *Stats) {
 	log.Printf("STATS: Running %s\n", stat.command)
 	client.Rcon.SendCallback(stat.command, stat.interval-1, func(response *webrcon.Response) {
+		if needs, modtime := client.checkNeedReload(stat.scriptpath, stat.modTime); needs {
+			var err error
+
+			stat.script, err = client.getScript(stat.scriptpath)
+			if err != nil {
+				log.Printf("Error reloading new script %s: %s\n", stat.scriptpath, err)
+				return
+			}
+
+			stat.modTime = modtime
+		}
+
 		log.Printf("Running callback for %s\n", stat.command)
 		_ = stat.script.Add("_INPUT", response.Message)
 		client.runScript(stat.script)
@@ -182,6 +223,18 @@ func (client *Client) OnMessageMonitoredStat(message []byte) {
 		log.Printf("MONITORED STATS: Checking if %s matches %s\n", v.pattern, r.Message)
 		re := v.patternCompiled.FindStringSubmatch(r.Message)
 		if re != nil {
+			if needs, modtime := client.checkNeedReload(v.scriptpath, v.modTime); needs {
+				var err error
+
+				v.script, err = client.getScript(v.scriptpath)
+				if err != nil {
+					log.Printf("Error reloading new script %s: %s\n", v.scriptpath, err)
+					continue
+				}
+
+				v.modTime = modtime
+			}
+
 			converted := make([]interface{}, len(re))
 			for i, vv := range re {
 				converted[i] = vv
