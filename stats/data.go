@@ -15,9 +15,9 @@ type Client struct {
 	Rcon           *webrcon.RconClient
 	influxDb       influxdb2.Client
 	database       string
-	stats          []Stats
-	internalStats  []InternalStats
-	monitoredStats []MonitoredStats
+	stats          []*Stats
+	internalStats  []*InternalStats
+	monitoredStats []*MonitoredStats
 	tengoGlobals   map[string]interface{}
 	tengomu        sync.Mutex
 }
@@ -27,6 +27,7 @@ type InternalStats struct {
 	interval   int
 	scriptpath string
 	script     *tengo.Script
+	modTime    int64
 }
 
 // MonitoredStats style stats.
@@ -35,6 +36,7 @@ type MonitoredStats struct {
 	patternCompiled *regexp.Regexp
 	scriptpath      string
 	script          *tengo.Script
+	modTime         int64
 }
 
 // Stats contains the configured stats plugins
@@ -43,4 +45,5 @@ type Stats struct {
 	command    string
 	scriptpath string
 	script     *tengo.Script
+	modTime    int64
 }

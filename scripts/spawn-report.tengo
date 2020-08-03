@@ -12,8 +12,6 @@ if text.contains(_INPUT, "\r\n") {
 _MEASUREMENTS := []
 parsed := text.split(_INPUT, lineendings)
 
-fmt.printf("PARSED: %v\n", parsed)
-
 for a:=0; a<len(parsed)-1; a+=3 {
     fieldvalue := text.replace(parsed[a], " ", "\\ ", len(parsed[a]))
     fmt.printf("FIELDVALUE = %s\n", fieldvalue)
