@@ -224,6 +224,7 @@ func main() {
 
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
+	defer logger.Sync()
 
 	rconPassword, err := loadrconpass(*opts.RconPassfile)
 	if err != nil {

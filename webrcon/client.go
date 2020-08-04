@@ -204,6 +204,7 @@ func (client *RconClient) SendCallback(command string, cacheFor int, callback fu
 		return
 	}
 
+	client.cmu.Lock()
 	client.identifier++
 	zap.S().Debugf("Set ID to %d for callback.", client.identifier)
 
@@ -217,7 +218,6 @@ func (client *RconClient) SendCallback(command string, cacheFor int, callback fu
 		timestamp: time.Now().Unix(),
 		callback:  client.cacheWrapper(command, cacheFor, callback)}
 
-	client.cmu.Lock()
 	client.callbacks[client.identifier] = cb
 	client.cmu.Unlock()
 
