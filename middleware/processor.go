@@ -2,12 +2,12 @@ package middleware
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/diametric/rustcon/webrcon"
 	"github.com/gomodule/redigo/redis"
+	"go.uber.org/zap"
 )
 
 // Processor contains the state data of the middleware instance
@@ -68,14 +68,14 @@ func (processor *Processor) Do(command string, args ...interface{}) (interface{}
 
 // We need this to pass by reference the callback or everything breaks.
 func (processor *Processor) runTickCallback(callback TickCallback) {
-	log.Printf("PROCESSOR: Time to run %s, interval %d\n", callback.command, callback.interval)
+	zap.S().Debugf("PROCESSOR: Time to run %s, interval %d\n", callback.command, callback.interval)
 	processor.Rcon.SendCallback(callback.command, callback.interval-1, func(response *webrcon.Response) {
 		_, err := processor.Do("SET", strings.ReplaceAll(
 			callback.storagekey,
 			"{tag}",
 			processor.Tag), response.Message)
 		if err != nil {
-			log.Printf("Error writing to redis in callback: %s\n", err)
+			zap.S().Errorf("Error writing to redis in callback: %s\n", err)
 		}
 	})
 }
@@ -100,6 +100,6 @@ func (processor *Processor) Process(done chan struct{}) {
 		}
 
 		time.Sleep(1 * time.Second)
-		log.Printf("MIDDLEWARE: Tick Count: %d\n", ticks)
+		zap.S().Debugf("MIDDLEWARE: Tick Count: %d\n", ticks)
 	}
 }

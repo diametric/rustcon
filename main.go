@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/diametric/rustcon/middleware"
 	"github.com/diametric/rustcon/stats"
@@ -34,6 +35,7 @@ type Config struct {
 	QueuesPrefix      string                   `json:"queues_prefix"`
 	IntervalCallbacks []IntervalCallbackConfig `json:"interval_callbacks"`
 	StaticQueues      []string                 `json:"static_queues"`
+	LoggingConfig     zap.Config               `json:"logging"`
 	MaxQueueSize      int                      `json:"max_queue_size"`
 	RedisConfig       RedisConfig              `json:"redis"`
 	InfluxConfig      InfluxConfig             `json:"influx"`
@@ -151,7 +153,7 @@ func buildOnConnectCallback(tag string, middleware middleware.Processor, cb Inte
 				"{tag}",
 				tag), response.Message)
 			if err != nil {
-				log.Printf("Error writing to redis in callback: %s\n", err)
+				zap.S().Errorf("Error writing to redis in callback: %s", err)
 			}
 		},
 	}
@@ -201,7 +203,25 @@ func main() {
 		return
 	}
 
-	logger, _ := zap.NewProduction()
+	logger, logerr := config.LoggingConfig.Build()
+	if logerr != nil {
+		panic(logerr)
+	}
+
+	config.LoggingConfig.EncoderConfig = zapcore.EncoderConfig{
+		MessageKey:   "message",
+		LevelKey:     "level",
+		EncodeLevel:  zapcore.CapitalColorLevelEncoder,
+		TimeKey:      "time",
+		EncodeTime:   zapcore.ISO8601TimeEncoder,
+		CallerKey:    "caller",
+		EncodeCaller: zapcore.ShortCallerEncoder,
+	}
+
+	logger = logger.WithOptions(zap.WrapCore(func(zapcore.Core) zapcore.Core {
+		return zapcore.NewCore(zapcore.NewConsoleEncoder(config.LoggingConfig.EncoderConfig), zapcore.AddSync(os.Stderr), config.LoggingConfig.Level)
+	}))
+
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
 
@@ -236,7 +256,7 @@ func main() {
 				middleware.AddIntervalCallback(v.Command, v.Interval, v.StorageKey)
 			} else {
 				if !v.RunOnConnect {
-					log.Printf("%s callback has 0 interval, and false run_on_connect. This callback will never run and is probably not what you intended.\n", v.Command)
+					zap.S().Warnf("%s callback has 0 interval, and false run_on_connect. This callback will never run and is probably not what you intended.", v.Command)
 				}
 			}
 			if v.RunOnConnect {
@@ -291,6 +311,5 @@ func main() {
 		case <-interrupt:
 			log.Print("Interrupt?")
 		}
-		log.Print("testing.")
 	}
 }

@@ -3,7 +3,6 @@ package webrcon
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -140,7 +139,7 @@ func (client *RconClient) runOnConnectCB(cb OnConnectCallback) {
 }
 
 func (client *RconClient) connect() error {
-	log.Printf("Connecting to %s\n", client.rconPath)
+	zap.S().Debugf("Connecting to %s", client.rconPath)
 	con, _, err := websocket.DefaultDialer.Dial(client.rconPath, nil)
 	if err != nil {
 		return fmt.Errorf("Error connecting to RCON: %s", err)
@@ -159,10 +158,10 @@ func (client *RconClient) connect() error {
 func (client *RconClient) disconnect() {
 	client.Stats.Disconnects++
 
-	log.Println("Disconnecting RCON client")
+	zap.S().Info("Disconnecting RCON client")
 	err := client.con.Close()
 	if err != nil {
-		log.Println("Error closing connection:", err)
+		zap.S().Warnf("Error closing connection: %s", err)
 	}
 
 	client.Connected = false
@@ -200,12 +199,12 @@ func (client *RconClient) SendCallback(command string, cacheFor int, callback fu
 	}
 
 	if !client.Connected {
-		log.Println("Client is disconnected, unable to send command.")
+		zap.S().Info("Client is disconnected, unable to send command.")
 		return
 	}
 
 	client.identifier++
-	log.Printf("Set ID to %d for callback.\n", client.identifier)
+	zap.S().Debugf("Set ID to %d for callback.", client.identifier)
 
 	cmd := Command{
 		Identifier: client.identifier,
@@ -229,7 +228,7 @@ func (client *RconClient) SendCallback(command string, cacheFor int, callback fu
 // Send a command with no callback
 func (client *RconClient) Send(command string) {
 	if !client.Connected {
-		log.Println("Client is disconnected, unable to send command.")
+		zap.S().Info("Client is disconnected, unable to send command.")
 		return
 	}
 
@@ -246,49 +245,47 @@ func (client *RconClient) Send(command string) {
 func (client *RconClient) rconReader() {
 	var sendOnMessage bool = true
 
-	log.Println("Starting up RCON reader")
+	zap.S().Debug("Starting up RCON reader")
 	for {
 		_, message, err := client.con.ReadMessage()
 
 		client.Stats.Messages++
 
 		if err != nil {
-			log.Println("RCON Read Error!\nError:", err)
-			log.Println("Disconnecting from RCON")
+			zap.S().Errorf("RCON Read Error! Disconnecting from RCON. Error: %s", err)
 			client.disconnect()
 			return
 		}
 
-		log.Println("Received RCON message: ", string(message))
+		zap.S().Debug("Received RCON message: ", string(message))
 
 		var p Response
 
 		if err := json.Unmarshal(message, &p); err != nil {
-			log.Println("Error decoding RCON websocket response: ", err)
+			zap.S().Errorf("Error decoding RCON websocket response: %s", err)
 			continue
 		}
 
-		fmt.Printf("DEBUG: %+v\n", client.callbacks)
+		zap.S().Debugf("Registered invoke callbacks: %+v", client.callbacks)
 
 		if p.Identifier >= StartingIdentifier {
 			sendOnMessage = client.CallOnMessageOnInvoke
 
-			log.Printf("Received RCON ID %d.\n", p.Identifier)
+			zap.S().Debugf("Received RCON ID %d.", p.Identifier)
 
 			client.cmu.Lock()
 			if val, exists := client.callbacks[p.Identifier]; exists {
 				client.cmu.Unlock()
-				log.Printf("Calling callback %+v for ID %d\n", val, p.Identifier)
+				zap.S().Debugf("Calling callback %+v for ID %d", val, p.Identifier)
 				client.Stats.OnInvokeCallbacks++
 				go val.callback(&p)
-				log.Printf("Callback is done.\n")
 
 				client.cmu.Lock()
 				delete(client.callbacks, p.Identifier)
 				client.cmu.Unlock()
 			} else {
 				client.cmu.Unlock()
-				log.Printf("No callback found for %d, this shouldn't happen.\n", p.Identifier)
+				zap.S().Errorf("No callback found for %d, this shouldn't happen. Message: %s", p.Identifier, p.Message)
 			}
 		} else {
 			sendOnMessage = true
@@ -308,7 +305,11 @@ func (client *RconClient) rconReader() {
 			}
 
 			if time.Now().Unix()-v.timestamp >= int64(v.ttl) {
-				log.Printf("Expiring callback ID %d, timed out.\n", i)
+				// Maybe change this to Debugf, but for now I think its worth
+				// notifying in normal logging when callbacks expire. Its normal
+				// to happen under high load or during initial connect.
+				zap.S().Infof("Expiring callback ID %d, timed out.", i)
+
 				delete(client.callbacks, i)
 				client.Stats.CommandTimeouts++
 			}
