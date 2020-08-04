@@ -12,6 +12,16 @@ func (o *TengoLogger) CanCall() bool {
 	return true
 }
 
+// TypeName returns the logger name
+func (o *TengoLogger) TypeName() string {
+	return "logger"
+}
+
+// String returns the logger name
+func (o *TengoLogger) String() string {
+	return "logger"
+}
+
 // Call provides the logger functionality.
 func (o *TengoLogger) Call(args ...tengo.Object) (ret tengo.Object, err error) {
 	if len(args) != 2 {
