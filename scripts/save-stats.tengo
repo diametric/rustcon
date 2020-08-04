@@ -1,3 +1,5 @@
+text := import("text")
+
 ents := text.replace(_MATCHES[1], ",", "", len(_MATCHES[1]))
 cache := _MATCHES[2]
 write := _MATCHES[3]

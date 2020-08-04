@@ -119,6 +119,7 @@ func (client *RconClient) MaintainConnection(done chan struct{}) {
 			zap.S().Error("Error connecting to RCON: ", err)
 			time.Sleep(5 * time.Second)
 		} else {
+			zap.S().Info("RCON connection established.")
 			go client.rconReader()
 		}
 	}
