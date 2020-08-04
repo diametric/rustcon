@@ -1,4 +1,4 @@
-ents := _MATCHES[1]
+ents := text.replace(_MATCHES[1], ",", "", len(_MATCHES[1]))
 cache := _MATCHES[2]
 write := _MATCHES[3]
 disk := _MATCHES[4]
