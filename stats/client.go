@@ -53,6 +53,12 @@ func (client *Client) getScript(scriptpath string) (*tengo.Script, error) {
 
 // RegisterMonitoredStat registers a stat based on monitoring the RCON data.
 func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
+	file, err := os.Stat(scriptpath)
+	if err != nil {
+		zap.S().Errorf("Error getting file modification time on %s: %s", scriptpath, err)
+		return
+	}
+
 	script, err := client.getScript(scriptpath)
 	if err != nil {
 		zap.S().Errorf("Unable to add internal stat %s, error reading script: %s", scriptpath, err)
@@ -70,6 +76,7 @@ func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
 		patternCompiled: compiled,
 		scriptpath:      scriptpath,
 		script:          script,
+		modTime:         file.ModTime().Unix(),
 	})
 
 	zap.S().Infof("Registered monitored stat, pattern = %s, script = %s", pattern, scriptpath)
@@ -77,6 +84,12 @@ func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
 
 // RegisterInternalStat registers an internal type stat.
 func (client *Client) RegisterInternalStat(scriptpath string, interval int) {
+	file, err := os.Stat(scriptpath)
+	if err != nil {
+		zap.S().Errorf("Error getting file modification time on %s: %s", scriptpath, err)
+		return
+	}
+
 	script, err := client.getScript(scriptpath)
 	if err != nil {
 		zap.S().Warnf("Unable to add internal stat %s, error reading script: %s", scriptpath, err)
@@ -87,6 +100,7 @@ func (client *Client) RegisterInternalStat(scriptpath string, interval int) {
 		interval:   interval,
 		scriptpath: scriptpath,
 		script:     script,
+		modTime:    file.ModTime().Unix(),
 	})
 
 	zap.S().Infof("Registered internal stat, interval = %d, script = %s", interval, scriptpath)
@@ -94,6 +108,12 @@ func (client *Client) RegisterInternalStat(scriptpath string, interval int) {
 
 // RegisterInvokedStat registers an invoked type stat.
 func (client *Client) RegisterInvokedStat(command string, scriptpath string, interval int) {
+	file, err := os.Stat(scriptpath)
+	if err != nil {
+		zap.S().Errorf("Error getting file modification time on %s: %s", scriptpath, err)
+		return
+	}
+
 	script, err := client.getScript(scriptpath)
 	if err != nil {
 		zap.S().Warnf("Unable to add invoked stat %s, error reading script: %s", scriptpath, err)
@@ -105,6 +125,7 @@ func (client *Client) RegisterInvokedStat(command string, scriptpath string, int
 		command:    command,
 		scriptpath: scriptpath,
 		script:     script,
+		modTime:    file.ModTime().Unix(),
 	})
 
 	zap.S().Infof("Registered invoked stat, command = %s, interval = %d, script = %s", command, interval, scriptpath)
@@ -174,6 +195,7 @@ func (client *Client) runInternalStat(stat *InternalStats) {
 	if needs, modtime := client.checkNeedReload(stat.scriptpath, stat.modTime); needs {
 		var err error
 
+		zap.S().Infof("Change detected in %s, reloading", stat.scriptpath)
 		stat.script, err = client.getScript(stat.scriptpath)
 		if err != nil {
 			zap.S().Errorf("Error reloading new script %s: %s", stat.scriptpath, err)
@@ -209,6 +231,7 @@ func (client *Client) runInvokedStat(stat *Stats) {
 		if needs, modtime := client.checkNeedReload(stat.scriptpath, stat.modTime); needs {
 			var err error
 
+			zap.S().Infof("Change detected in %s, reloading", stat.scriptpath)
 			stat.script, err = client.getScript(stat.scriptpath)
 			if err != nil {
 				zap.S().Errorf("Error reloading new script %s: %s", stat.scriptpath, err)
@@ -242,6 +265,7 @@ func (client *Client) OnMessageMonitoredStat(message []byte) {
 			if needs, modtime := client.checkNeedReload(v.scriptpath, v.modTime); needs {
 				var err error
 
+				zap.S().Infof("Change detected in %s, reloading", v.scriptpath)
 				v.script, err = client.getScript(v.scriptpath)
 				if err != nil {
 					zap.S().Errorf("Error reloading new script %s: %s", v.scriptpath, err)
