@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -203,11 +205,6 @@ func main() {
 		return
 	}
 
-	logger, logerr := config.LoggingConfig.Build()
-	if logerr != nil {
-		panic(logerr)
-	}
-
 	config.LoggingConfig.EncoderConfig = zapcore.EncoderConfig{
 		MessageKey:   "message",
 		LevelKey:     "level",
@@ -218,13 +215,14 @@ func main() {
 		EncodeCaller: zapcore.ShortCallerEncoder,
 	}
 
-	logger = logger.WithOptions(zap.WrapCore(func(zapcore.Core) zapcore.Core {
-		return zapcore.NewCore(zapcore.NewConsoleEncoder(config.LoggingConfig.EncoderConfig), zapcore.AddSync(os.Stderr), config.LoggingConfig.Level)
-	}))
+	logger, logerr := config.LoggingConfig.Build()
+	if logerr != nil {
+		panic(logerr)
+	}
 
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
-	defer logger.Sync()
+	defer zap.S().Sync()
 
 	rconPassword, err := loadrconpass(*opts.RconPassfile)
 	if err != nil {
@@ -235,7 +233,10 @@ func main() {
 	rcon := webrcon.RconClient{}
 
 	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
 	done := make(chan struct{})
+	var wg sync.WaitGroup
 
 	rcon.InitClient(*opts.RconHost, *opts.RconPort, rconPassword)
 
@@ -272,7 +273,7 @@ func main() {
 				middleware))
 		}
 
-		go middleware.Process(done)
+		go middleware.Process(done, &wg)
 	}
 
 	if config.EnableInfluxStats {
@@ -300,17 +301,20 @@ func main() {
 		rcon.OnMessage(webrcon.OnMessageCallback{
 			Callback: statsclient.OnMessageMonitoredStat})
 
-		go statsclient.CollectStats(done)
+		go statsclient.CollectStats(done, &wg)
 	}
 
-	go rcon.MaintainConnection(done)
+	go rcon.MaintainConnection(done, &wg)
 
 	for {
 		select {
-		case <-done:
-			return
 		case <-interrupt:
-			log.Print("Interrupt?")
+			zap.S().Warn("CTRL-C caught, exiting.")
+			log.Println("CTRL-C caught, exiting.")
+			zap.S().Sync()
+			close(done)
+			wg.Wait()
+			return
 		}
 	}
 }

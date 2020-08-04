@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/d5/tengo"
@@ -297,10 +298,21 @@ func (client *Client) OnMessageMonitoredStat(message []byte) {
 }
 
 // CollectStats begins running the configured stats.
-func (client *Client) CollectStats(done chan struct{}) {
+func (client *Client) CollectStats(done chan struct{}, wg *sync.WaitGroup) {
 	var ticks int64
 
+	zap.S().Info("Starting up stats collector.")
+	wg.Add(1)
+
 	for {
+		select {
+		case <-done:
+			zap.S().Info("Shutting down stats collector.")
+			wg.Done()
+			return
+		default:
+		}
+
 		ticks++
 
 		for _, stat := range client.stats {

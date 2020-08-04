@@ -39,9 +39,10 @@ type RconClient struct {
 	callbacks             map[int]RconCallback
 	onconnect             []OnConnectCallback
 	onmessage             []OnMessageCallback
-	mu                    sync.Mutex
-	cmu                   sync.Mutex
+	mu                    sync.Mutex // So many mutexes, there must be a better
+	cmu                   sync.Mutex // way..
 	cachemu               sync.Mutex
+	dcmu                  sync.Mutex
 	cache                 map[string]commandCache
 }
 
@@ -106,8 +107,23 @@ func (client *RconClient) InitClient(host string, port int, password string) {
 // MaintainConnection is intended to be run as a goroutine and will loop
 // forever, maintaining a connection and restablishing whenever the websocket
 // goes down.
-func (client *RconClient) MaintainConnection(done chan struct{}) {
+func (client *RconClient) MaintainConnection(done chan struct{}, wg *sync.WaitGroup) {
+	zap.S().Info("Starting up RCON client")
+	wg.Add(1)
+
 	for {
+		select {
+		case <-done:
+			zap.S().Info("Shutting down RCON client.")
+			wg.Done()
+			if client.Connected {
+				// This should interrupt the read on the rconReader goroutine
+				client.disconnect()
+			}
+			return
+		default:
+		}
+
 		if client.Connected {
 			time.Sleep(5 * time.Second)
 			continue
@@ -120,7 +136,7 @@ func (client *RconClient) MaintainConnection(done chan struct{}) {
 			time.Sleep(5 * time.Second)
 		} else {
 			zap.S().Info("RCON connection established.")
-			go client.rconReader()
+			go client.rconReader(done, wg)
 		}
 	}
 }
@@ -157,6 +173,7 @@ func (client *RconClient) connect() error {
 }
 
 func (client *RconClient) disconnect() {
+	client.dcmu.Lock()
 	client.Stats.Disconnects++
 
 	zap.S().Info("Disconnecting RCON client")
@@ -166,6 +183,7 @@ func (client *RconClient) disconnect() {
 	}
 
 	client.Connected = false
+	client.dcmu.Unlock()
 }
 
 func (client *RconClient) writeJSON(v interface{}) error {
@@ -243,18 +261,30 @@ func (client *RconClient) Send(command string) {
 	client.Stats.CommandsRun++
 }
 
-func (client *RconClient) rconReader() {
+func (client *RconClient) rconReader(done chan struct{}, wg *sync.WaitGroup) {
 	var sendOnMessage bool = true
 
 	zap.S().Debug("Starting up RCON reader")
+	wg.Add(1)
+
 	for {
+		select {
+		case <-done:
+			zap.S().Info("Shutting down RCON reader.")
+			wg.Done()
+			return
+		default:
+		}
+
 		_, message, err := client.con.ReadMessage()
 
 		client.Stats.Messages++
 
 		if err != nil {
 			zap.S().Errorf("RCON Read Error! Disconnecting from RCON. Error: %s", err)
-			client.disconnect()
+			if client.Connected {
+				client.disconnect()
+			}
 			return
 		}
 

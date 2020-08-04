@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/diametric/rustcon/webrcon"
@@ -81,10 +82,21 @@ func (processor *Processor) runTickCallback(callback TickCallback) {
 }
 
 // Process the various redis related functions, state maintenance, etc.
-func (processor *Processor) Process(done chan struct{}) {
+func (processor *Processor) Process(done chan struct{}, wg *sync.WaitGroup) {
 	var ticks int64
 
+	zap.S().Info("Starting up middlewarep rocessor")
+	wg.Add(1)
+
 	for {
+		select {
+		case <-done:
+			zap.S().Info("Shutting down middleware processor.")
+			wg.Done()
+			return
+		default:
+		}
+
 		ticks++
 
 		for _, callback := range processor.tickcallbacks {
