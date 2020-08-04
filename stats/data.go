@@ -47,3 +47,10 @@ type Stats struct {
 	script     *tengo.Script
 	modTime    int64
 }
+
+// Tengo related data structures
+
+// TengoLogger defines the object type for the logger functions
+type TengoLogger struct {
+	tengo.ObjectImpl
+}

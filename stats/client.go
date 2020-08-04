@@ -152,6 +152,7 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 
 func (client *Client) runScript(script *tengo.Script) {
 	_ = script.Add("_TAG", client.Tag)
+	_ = script.Add("logger", &TengoLogger{})
 
 	client.tengomu.Lock()
 	_ = script.Add("_GLOBALS", client.tengoGlobals)
