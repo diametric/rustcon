@@ -12,7 +12,7 @@ cp rustcon.conf builds/linux/rustcon-$VERSION/
 cp scripts/* builds/linux/rustcon-$VERSION/scripts/
 
 cd builds/linux
-tar -zcvf rustcon-$VERSION.tar.gz rustcon-$VERSION/
+tar -zcvf rustcon-$VERSION-linux.tar.gz rustcon-$VERSION/
 
 cd ../../
 rm -rf builds/linux/rustcon-$VERSION/

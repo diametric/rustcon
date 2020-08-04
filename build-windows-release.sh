@@ -12,7 +12,7 @@ cp rustcon.conf builds/windows/rustcon-$VERSION/
 cp scripts/* builds/windows/rustcon-$VERSION/scripts/
 
 cd builds/windows
-zip -r rustcon-$VERSION.zip rustcon-$VERSION/
+zip -r rustcon-$VERSION-windows.zip rustcon-$VERSION/
 
 cd ../../
 rm -rf builds/windows/rustcon-$VERSION/
