@@ -10,11 +10,11 @@ if is_undefined(_GLOBALS["LastRconStats"]) {
 } else {
     lastStats = _GLOBALS["LastRconStats"]
 }
-_GLOBALS["LastRconStats"] = _RCON_STATS
 
 diff := []
 for k, v in _RCON_STATS {
     diff = append(diff, format("%s=%d", k, _RCON_STATS[k] - lastStats[k]))
 }
 
+_GLOBALS["LastRconStats"] = _RCON_STATS
 _MEASUREMENTS := [format("rustcon_rconclient,servertag=%s %s", _TAG, text.join(diff, ","))]
