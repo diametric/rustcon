@@ -28,6 +28,7 @@ type CommandLineConfig struct {
 	RconPassfile *string
 	Tag          *string
 	Version      *bool
+	Debug        *bool
 }
 
 // Config file definition
@@ -179,8 +180,9 @@ func main() {
 	opts.RconHost = flag.String("hostname", "localhost", "RCON hostname")
 	opts.RconPort = flag.Int("port", 28016, "RCON port")
 	opts.RconPassfile = flag.String("passfile", ".rconpass", "Path to a file containing the RCON password")
-	opts.Tag = flag.String("tag", "", "A unique identifier that tags this server")
+	opts.Tag = flag.String("tag", "", "A unique identifier that tags this server (defaults to hostname:port)")
 	opts.Version = flag.Bool("version", false, "Display version information")
+	opts.Debug = flag.Bool("debug", false, "Override log level in config, and set to debug")
 
 	flag.Parse()
 
@@ -213,6 +215,11 @@ func main() {
 		EncodeTime:   zapcore.ISO8601TimeEncoder,
 		CallerKey:    "caller",
 		EncodeCaller: zapcore.ShortCallerEncoder,
+	}
+
+	if *opts.Debug {
+		fmt.Println("Overriding configured log level, setting to debug.")
+		config.LoggingConfig.Level.SetLevel(zap.DebugLevel)
 	}
 
 	logger, logerr := config.LoggingConfig.Build()

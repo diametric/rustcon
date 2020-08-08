@@ -173,7 +173,15 @@ func (client *RconClient) connect() error {
 }
 
 func (client *RconClient) disconnect() {
+
 	client.dcmu.Lock()
+	defer client.dcmu.Unlock()
+
+	if !client.Connected {
+		zap.S().Warn("Attempting to disconnect an already disconnected connection.")
+		return
+	}
+
 	client.Stats.Disconnects++
 
 	zap.S().Info("Disconnecting RCON client")
@@ -183,7 +191,6 @@ func (client *RconClient) disconnect() {
 	}
 
 	client.Connected = false
-	client.dcmu.Unlock()
 }
 
 func (client *RconClient) writeJSON(v interface{}) error {
@@ -263,6 +270,7 @@ func (client *RconClient) Send(command string) {
 
 func (client *RconClient) rconReader(done chan struct{}, wg *sync.WaitGroup) {
 	var sendOnMessage bool = true
+	defer wg.Done()
 
 	zap.S().Debug("Starting up RCON reader")
 	wg.Add(1)
@@ -271,23 +279,22 @@ func (client *RconClient) rconReader(done chan struct{}, wg *sync.WaitGroup) {
 		select {
 		case <-done:
 			zap.S().Info("Shutting down RCON reader.")
-			wg.Done()
 			return
 		default:
 		}
 
 		_, message, err := client.con.ReadMessage()
 
-		client.Stats.Messages++
-
 		if err != nil {
 			zap.S().Errorf("RCON Read Error! Disconnecting from RCON. Error: %s", err)
 			if client.Connected {
 				client.disconnect()
 			}
+
 			return
 		}
 
+		client.Stats.Messages++
 		zap.S().Debug("Received RCON message: ", string(message))
 
 		var p Response

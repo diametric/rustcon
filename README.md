@@ -69,7 +69,7 @@ $ ./rustcon -hostname rustserver-ip.com -port 28016 -passfile /path/to/your/rcon
 
 Windows:
 ```sh
-C:\rustcon\> rustcon.exe -hostname rustserver-ip.com -port 28016 -passfile /path/to/your/rcon/passwordfile.txt
+C:\rustcon> rustcon.exe -hostname rustserver-ip.com -port 28016 -passfile /path/to/your/rcon/passwordfile.txt
 ```
 
 4. Load up your [favorite graphing software](https://grafana.com/) and enjoy your stats!

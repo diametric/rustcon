@@ -30,7 +30,7 @@ fmt.printf("Hello, I'm a %s type script.\n", _SCRIPT_TYPE)
 
 fmt.printf("I'm tagged with %s\n", _TAG)
 
-// Finally, the logger(string level, string message) function exists in all scripts.
+// The logger(string level, string message) function exists in all scripts.
 // Level is one of error, warn (or warning), info, or debug. This follows the
 // applications configured logging level and format.
 
@@ -38,6 +38,18 @@ logger("warn", "Hello I'm a warning")
 logger("info", "Hello I'm an info message")
 logger("debug", format("Hello I'm debug message. For all levels you need to use format(%s) to pass variables", "string"))
 logger("error", "Haha I'm in danger")
+
+// The lock() and unlock() functions exists in all scripts. These implement a
+// shared mutex across all scripts. By default _GLOBALS is thread-safe
+// internally, but not between scripts.
+
+lock()
+if is_undefined(_GLOBALS["somelist"]) {
+    _GLOBALS["somelist"] = [1]
+} else {
+    _GLOBALS["somelist"] = append(_GLOBALS["somelist"], 2)
+}
+unlock()
 
 // There are three types of stats: internal, invoked, monitored
 
@@ -51,14 +63,8 @@ if _SCRIPT_TYPE == "internal" {
 }
 
 // invoked: These scripts are run by invoking an RCON command, and passing its
-// output to the _INPUT variable of the script.
-
-if _SCRIPT_TYPE == "invoked" {
-    fmt.printf("_INPUT contains the RCON command's output: %s\n", _INPUT)
-}
-
-// monitored: These scripts are invoked on a pattern match against the incoming
-// data from the RCON connection. They define two variables, _MATCHES and _RESPONSE
+// output to the _INPUT variable of the script. Additionally the entire RCON
+// message is passed via the _RESPONSE variable:
 // _RESPONSE contains a map format of the following go struct:
 //
 // type Response struct {
@@ -67,6 +73,15 @@ if _SCRIPT_TYPE == "invoked" {
 //	 Type       string `json:"Type"`
 //	 Stacktrace string `json:"Stacktrace"`
 // }
+
+
+if _SCRIPT_TYPE == "invoked" {
+    fmt.printf("_INPUT contains the RCON command's output: %s\n", _INPUT)
+}
+
+// monitored: These scripts are invoked on a pattern match against the incoming
+// data from the RCON connection. They define two variables, _MATCHES and _RESPONSE
+// _RESPONSE contains the same data as the one passed to invoked scripts.
 
 if _SCRIPT_TYPE == "monitored" {
     fmt.printf("_MATCHES contains the matches from the regex pattern: %v\n", _MATCHES)
