@@ -1,0 +1,21 @@
+times := import("times")
+
+_MEASUREMENTS := []
+_BUCKET := "sixty_days"
+
+if _SCRIPT_TYPE == "invoked" {
+    if !is_undefined(_GLOBALS["clientperf_measurements"]) {
+        for measurement in _GLOBALS["clientperf_measurements"] {
+            _MEASUREMENTS = append(_MEASUREMENTS, measurement)
+        }
+        _GLOBALS["clientperf_measurements"] = []
+    }
+} else {
+    lock()
+    if is_undefined(_GLOBALS["clientperf_measurements"]) {
+        _GLOBALS["clientperf_measurements"] = [format("clientperf,servertag=%s sysmem=%s,gpumem=%s,fps=%s,streamermode=%s,steamid=%s %d", _TAG, _MATCHES[1], _MATCHES[2], _MATCHES[3], _MATCHES[5], _MATCHES[6], times.time_unix_nano(times.now()))]
+    } else {
+        _GLOBALS["clientperf_measurements"] = append(_GLOBALS["clientperf_measurements"], format("clientperf,servertag=%s sysmem=%s,gpumem=%s,fps=%s,streamermode=%s,steamid=%s %d", _TAG, _MATCHES[1], _MATCHES[2], _MATCHES[3], _MATCHES[5], _MATCHES[6], times.time_unix_nano(times.now())+len(_GLOBALS["clientperf_measurements"])))
+    }
+    unlock()
+}
