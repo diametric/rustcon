@@ -32,6 +32,7 @@ type RconStats struct {
 type RconClient struct {
 	Connected             bool
 	CallOnMessageOnInvoke bool
+	OnConnectDelay        int
 	Stats                 RconStats
 	identifier            int
 	rconPath              string
@@ -152,6 +153,10 @@ func (client *RconClient) OnMessage(cb OnMessageCallback) {
 }
 
 func (client *RconClient) runOnConnectCB(cb OnConnectCallback) {
+	if client.OnConnectDelay > 0 {
+		time.Sleep(time.Duration(client.OnConnectDelay) * time.Second)
+	}
+
 	client.SendCallback(cb.Command, 0, cb.Callback)
 }
 
@@ -166,7 +171,7 @@ func (client *RconClient) connect() error {
 
 	for _, v := range client.onconnect {
 		client.Stats.OnConnectCallback++
-		client.runOnConnectCB(v)
+		go client.runOnConnectCB(v)
 	}
 
 	return nil

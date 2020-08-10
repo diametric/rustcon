@@ -33,16 +33,18 @@ type CommandLineConfig struct {
 
 // Config file definition
 type Config struct {
-	EnableRedisQueue  bool                     `json:"enable_redis_queue"`
-	EnableInfluxStats bool                     `json:"enable_influx_stats"`
-	QueuesPrefix      string                   `json:"queues_prefix"`
-	IntervalCallbacks []IntervalCallbackConfig `json:"interval_callbacks"`
-	StaticQueues      []string                 `json:"static_queues"`
-	LoggingConfig     zap.Config               `json:"logging"`
-	MaxQueueSize      int                      `json:"max_queue_size"`
-	RedisConfig       RedisConfig              `json:"redis"`
-	InfluxConfig      InfluxConfig             `json:"influx"`
-	StatsConfig       StatsConfig              `json:"stats"`
+	EnableRedisQueue      bool                     `json:"enable_redis_queue"`
+	EnableInfluxStats     bool                     `json:"enable_influx_stats"`
+	QueuesPrefix          string                   `json:"queues_prefix"`
+	IntervalCallbacks     []IntervalCallbackConfig `json:"interval_callbacks"`
+	StaticQueues          []string                 `json:"static_queues"`
+	LoggingConfig         zap.Config               `json:"logging"`
+	MaxQueueSize          int                      `json:"max_queue_size"`
+	CallOnMessageOnInvoke bool                     `json:"call_onmessage_on_invoke"`
+	OnConnectDelay        int                      `json:"onconnect_delay"`
+	RedisConfig           RedisConfig              `json:"redis"`
+	InfluxConfig          InfluxConfig             `json:"influx"`
+	StatsConfig           StatsConfig              `json:"stats"`
 }
 
 // StatsConfig definition
@@ -237,7 +239,9 @@ func main() {
 		return
 	}
 
-	rcon := webrcon.RconClient{}
+	rcon := webrcon.RconClient{
+		CallOnMessageOnInvoke: config.CallOnMessageOnInvoke,
+		OnConnectDelay:        config.OnConnectDelay}
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
