@@ -1,0 +1,14 @@
+[Unit]
+Description=rustcon %I
+After=network.target
+
+[Service]
+Type=simple
+User=rustcon
+Group=rustcon
+WorkingDirectory=/opt/rustcon
+ExecStart=/opt/rustcon/start-rustcon.sh %I
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
