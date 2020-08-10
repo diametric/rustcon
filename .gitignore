@@ -1,0 +1,9 @@
+rustcon
+rustcon.exe
+builds/
+passfile
+rustcon-bb.conf
+test.sh
+test2.sh
+*.log
+
