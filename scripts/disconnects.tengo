@@ -1,9 +1,5 @@
 text := import("text")
 
-reason := _MATCHES[2]
-
-reason = text.replace(reason, ",", "\\,", len(_MATCHES[2]))
-reason = text.replace(reason, " ", "\\ ", len(_MATCHES[2]))
-reason = text.replace(reason, "=", "\\=", len(_MATCHES[2]))
+reason := tagescape(_MATCHES[2])
 
 _MEASUREMENTS := [format("disconnects,servertag=%s,reason=%s steamid=%s", _TAG, reason, _MATCHES[1])]

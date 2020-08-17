@@ -12,6 +12,7 @@ import (
 type Client struct {
 	Tag            string
 	Rcon           *webrcon.RconClient
+	Test           bool
 	influxDb       influxdb2.Client
 	database       string
 	stats          []*Stats
@@ -19,30 +20,31 @@ type Client struct {
 	monitoredStats []*MonitoredStats
 }
 
-// InternalStats stats, or rather stats that just run at an interval with not RCON command.
-type InternalStats struct {
-	interval   int
+// StatsImpl defines the data all stat types use.
+type StatsImpl struct {
 	scriptpath string
 	script     *tengo.Compiled
 	modTime    int64
+}
+
+// InternalStats stats, or rather stats that just run at an interval with not RCON command.
+type InternalStats struct {
+	StatsImpl
+	interval int
 }
 
 // MonitoredStats style stats.
 type MonitoredStats struct {
+	StatsImpl
 	pattern         string
 	patternCompiled *regexp.Regexp
-	scriptpath      string
-	script          *tengo.Compiled
-	modTime         int64
 }
 
 // Stats contains the configured stats plugins
 type Stats struct {
-	interval   int
-	command    string
-	scriptpath string
-	script     *tengo.Compiled
-	modTime    int64
+	StatsImpl
+	interval int
+	command  string
 }
 
 // Tengo related data structures
@@ -65,5 +67,15 @@ type TengoLock struct {
 
 // TengoUnlock defines the object type for a generic mutex unlock function
 type TengoUnlock struct {
+	tengo.ObjectImpl
+}
+
+// TengoTagEscape defines the object type for escaping tag values
+type TengoTagEscape struct {
+	tengo.ObjectImpl
+}
+
+// TengoFieldEscape defines the object for escaping field values
+type TengoFieldEscape struct {
 	tengo.ObjectImpl
 }

@@ -29,6 +29,7 @@ type CommandLineConfig struct {
 	Tag          *string
 	Version      *bool
 	Debug        *bool
+	Test         *bool
 }
 
 // Config file definition
@@ -54,23 +55,29 @@ type StatsConfig struct {
 	Monitored []MonitoredStatConfig
 }
 
+// ScriptedStatImpl defines the base implementation all stat configs use
+type ScriptedStatImpl struct {
+	Script   string `json:"script"`
+	Disabled bool   `json:"disabled"`
+}
+
 // InternalStatsConfig definition
 type InternalStatsConfig struct {
-	Script  string `json:"script"`
-	Interal int    `json:"interval"`
+	ScriptedStatImpl
+	Interal int `json:"interval"`
 }
 
 // InvokedStatConfig definition
 type InvokedStatConfig struct {
+	ScriptedStatImpl
 	Command  string `json:"command"`
-	Script   string `json:"script"`
 	Interval int    `json:"interval"`
 }
 
 // MonitoredStatConfig definition
 type MonitoredStatConfig struct {
+	ScriptedStatImpl
 	Pattern string `json:"pattern"`
-	Script  string `json:"script"`
 }
 
 // IntervalCallbackConfig definition
@@ -185,6 +192,7 @@ func main() {
 	opts.Tag = flag.String("tag", "", "A unique identifier that tags this server (defaults to hostname:port)")
 	opts.Version = flag.Bool("version", false, "Display version information")
 	opts.Debug = flag.Bool("debug", false, "Override log level in config, and set to debug")
+	opts.Test = flag.Bool("test", false, "Perform only test writes, output to stdout")
 
 	flag.Parse()
 
@@ -288,7 +296,7 @@ func main() {
 	}
 
 	if config.EnableInfluxStats {
-		statsclient := stats.Client{Tag: *opts.Tag, Rcon: &rcon}
+		statsclient := stats.Client{Tag: *opts.Tag, Rcon: &rcon, Test: *opts.Test}
 		statsclient.InitClient(
 			config.InfluxConfig.Host,
 			config.InfluxConfig.Port,
@@ -298,15 +306,21 @@ func main() {
 			config.InfluxConfig.SSL)
 
 		for _, v := range config.StatsConfig.Invoked {
-			statsclient.RegisterInvokedStat(v.Command, v.Script, v.Interval)
+			if !v.Disabled {
+				statsclient.RegisterInvokedStat(v.Command, v.Script, v.Interval)
+			}
 		}
 
 		for _, v := range config.StatsConfig.Internal {
-			statsclient.RegisterInternalStat(v.Script, v.Interal)
+			if !v.Disabled {
+				statsclient.RegisterInternalStat(v.Script, v.Interal)
+			}
 		}
 
 		for _, v := range config.StatsConfig.Monitored {
-			statsclient.RegisterMonitoredStat(v.Pattern, v.Script)
+			if !v.Disabled {
+				statsclient.RegisterMonitoredStat(v.Pattern, v.Script)
+			}
 		}
 
 		rcon.OnMessage(webrcon.OnMessageCallback{

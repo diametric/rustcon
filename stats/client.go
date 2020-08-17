@@ -21,6 +21,7 @@ import (
 	"github.com/fatih/structs"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go"
+	"github.com/influxdata/influxdb-client-go/api"
 )
 
 func (client *Client) checkNeedReload(scriptpath string, modTime int64) (bool, int64) {
@@ -54,6 +55,8 @@ func (client *Client) getScript(scriptpath string) (*tengo.Compiled, error) {
 	_ = script.Add("logger", nil)
 	_ = script.Add("lock", nil)
 	_ = script.Add("unlock", nil)
+	_ = script.Add("tagescape", nil)
+	_ = script.Add("fieldescape", nil)
 
 	_ = script.Add("_TAG", nil)
 	_ = script.Add("_SCRIPT_TYPE", nil)
@@ -88,11 +91,13 @@ func (client *Client) RegisterMonitoredStat(pattern string, scriptpath string) {
 	}
 
 	client.monitoredStats = append(client.monitoredStats, &MonitoredStats{
+		StatsImpl: StatsImpl{
+			scriptpath: scriptpath,
+			script:     script,
+			modTime:    file.ModTime().Unix(),
+		},
 		pattern:         pattern,
 		patternCompiled: compiled,
-		scriptpath:      scriptpath,
-		script:          script,
-		modTime:         file.ModTime().Unix(),
 	})
 
 	zap.S().Infof("Registered monitored stat, pattern = %s, script = %s", pattern, scriptpath)
@@ -113,10 +118,12 @@ func (client *Client) RegisterInternalStat(scriptpath string, interval int) {
 	}
 
 	client.internalStats = append(client.internalStats, &InternalStats{
-		interval:   interval,
-		scriptpath: scriptpath,
-		script:     script,
-		modTime:    file.ModTime().Unix(),
+		StatsImpl: StatsImpl{
+			scriptpath: scriptpath,
+			script:     script,
+			modTime:    file.ModTime().Unix(),
+		},
+		interval: interval,
 	})
 
 	zap.S().Infof("Registered internal stat, interval = %d, script = %s", interval, scriptpath)
@@ -137,11 +144,13 @@ func (client *Client) RegisterInvokedStat(command string, scriptpath string, int
 	}
 
 	client.stats = append(client.stats, &Stats{
-		interval:   interval,
-		command:    command,
-		scriptpath: scriptpath,
-		script:     script,
-		modTime:    file.ModTime().Unix(),
+		StatsImpl: StatsImpl{
+			scriptpath: scriptpath,
+			script:     script,
+			modTime:    file.ModTime().Unix(),
+		},
+		interval: interval,
+		command:  command,
 	})
 
 	zap.S().Infof("Registered invoked stat, command = %s, interval = %d, script = %s", command, interval, scriptpath)
@@ -149,6 +158,14 @@ func (client *Client) RegisterInvokedStat(command string, scriptpath string, int
 
 // InitClient establishes the InfluxDB connection and sets up queues
 func (client *Client) InitClient(host string, port int, database string, username string, password string, ssl bool) {
+	client.database = database
+
+	if client.Test {
+		// Testing only, we're done here.
+		zap.S().Info("Test mode enabled, InfluxDB writes disabled.")
+		return
+	}
+
 	var ssls string = ""
 	if ssl {
 		ssls = "s"
@@ -162,7 +179,6 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 				InsecureSkipVerify: true,
 			}))
 
-	client.database = database
 }
 
 func (client *Client) runScript(script *tengo.Compiled) {
@@ -171,6 +187,8 @@ func (client *Client) runScript(script *tengo.Compiled) {
 	_ = script.Set("logger", &TengoLogger{})
 	_ = script.Set("lock", &TengoLock{})
 	_ = script.Set("unlock", &TengoUnlock{})
+	_ = script.Set("tagescape", &TengoTagEscape{})
+	_ = script.Set("fieldescape", &TengoFieldEscape{})
 
 	err := script.Run()
 
@@ -189,20 +207,27 @@ func (client *Client) runScript(script *tengo.Compiled) {
 		bucket = b.String()
 	}
 
-	writeAPI := client.influxDb.WriteAPIBlocking(
-		"", fmt.Sprintf("%s/%s", client.database, bucket))
+	var writeAPI api.WriteAPIBlocking
+	if !client.Test {
+		writeAPI = client.influxDb.WriteAPIBlocking(
+			"", fmt.Sprintf("%s/%s", client.database, bucket))
+	}
 
 	measurements := script.Get("_MEASUREMENTS")
-	if measurements != nil {
+	if measurements != nil && measurements.Array() != nil && len(measurements.Array()) > 0 {
 		var linedata strings.Builder
 		for _, m := range measurements.Array() {
 			linedata.WriteString(fmt.Sprintf("%v\n", m))
 		}
 
-		zap.S().Debugf("Writing out InfluxDB record: %s", linedata.String())
-		err := writeAPI.WriteRecord(context.Background(), linedata.String())
-		if err != nil {
-			zap.S().Error("Error writing InfluxDB record: ", err)
+		if !client.Test {
+			zap.S().Debugf("Writing out InfluxDB record: %s", linedata.String())
+			err := writeAPI.WriteRecord(context.Background(), linedata.String())
+			if err != nil {
+				zap.S().Error("Error writing InfluxDB record: ", err)
+			}
+		} else {
+			zap.S().Infof("TEST: InfluxDB record, database = %s, bucket  = %s\nData:\n%s", client.database, bucket, linedata.String())
 		}
 	}
 }
