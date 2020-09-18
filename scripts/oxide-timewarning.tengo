@@ -1,0 +1,9 @@
+json := import("json")
+fmt := import("fmt")
+
+gc := "false"
+if _MATCHES[5] == "[GARBAGE COLLECT]" {
+    gc = "true"
+}
+
+_MEASUREMENTS := [format("oxide_timewarnings,servertag=%s,gc=%s,plugin=%s,hook=%s,version=%s calltime=%s", _TAG, gc, tagescape(_MATCHES[2]), tagescape(_MATCHES[1]), tagescape(_MATCHES[3]), _MATCHES[4])]
