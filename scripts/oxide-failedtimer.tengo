@@ -1,0 +1,2 @@
+_MEASUREMENTS := [format("oxide_timerfailures,servertag=%s,plugin=%s,version=%s,timer=%s,error=%s stacktrace=\"%s\"",
+    _TAG, tagescape(_MATCHES[2]), tagescape(_MATCHES[3]), tagescape(_MATCHES[1]), tagescape(_MATCHES[4]), fieldescape(_MATCHES[5]))]

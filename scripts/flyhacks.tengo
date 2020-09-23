@@ -1,0 +1,1 @@
+_MEASUREMENTS := [format("flyhacks,servertag=%s playername=\"%s\",steamid=%s,violation=%s", _TAG, fieldescape(_MATCHES[1]), _MATCHES[2], _MATCHES[3])]

@@ -52,6 +52,8 @@ func (client *Client) getScript(scriptpath string) (*tengo.Compiled, error) {
 
 	// Here we add all possible variables, but set them to nil.
 
+	_ = script.Add("discord_webhook", nil)
+	_ = script.Add("slack_webhook", nil)
 	_ = script.Add("logger", nil)
 	_ = script.Add("lock", nil)
 	_ = script.Add("unlock", nil)
@@ -184,6 +186,8 @@ func (client *Client) InitClient(host string, port int, database string, usernam
 func (client *Client) runScript(script *tengo.Compiled) {
 	_ = script.Set("_GLOBALS", &TengoGlobals{})
 	_ = script.Set("_TAG", client.Tag)
+	_ = script.Set("discord_webhook", &TengoDiscordWebhook{})
+	_ = script.Set("slack_webhook", &TengoSlackWebhook{})
 	_ = script.Set("logger", &TengoLogger{})
 	_ = script.Set("lock", &TengoLock{})
 	_ = script.Set("unlock", &TengoUnlock{})

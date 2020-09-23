@@ -51,6 +51,16 @@ if is_undefined(_GLOBALS["somelist"]) {
 }
 unlock()
 
+// External alerting
+// A little bit of scope creep but can be useful, you can send webhooks to
+// slack and discord using the slack_webhook() and discord_webhook() functions.
+// Both functions return the HTTP status code, or -1 for unknown error.
+
+// For now no embed support, it complicates things too much. Only simple messages.
+discord_webhook("webhook-url.com/1234", "message", "optional username")
+
+slack_webhook("webhook-url.com/1234", "message")
+
 // There are three types of stats: internal, invoked, monitored
 
 // internal: These scripts have two variables available to them:

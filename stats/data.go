@@ -79,3 +79,13 @@ type TengoTagEscape struct {
 type TengoFieldEscape struct {
 	tengo.ObjectImpl
 }
+
+// TengoDiscordWebhook defines the object for sending a discord webhook
+type TengoDiscordWebhook struct {
+	tengo.ObjectImpl
+}
+
+// TengoSlackWebhook defines the object for sending a slack webhook
+type TengoSlackWebhook struct {
+	tengo.ObjectImpl
+}

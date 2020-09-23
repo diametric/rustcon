@@ -1,1 +1,1 @@
-_MEASUREMENTS := [format("playerreports,servertag=%s,reason=%s reporter_id=%s,reporter_name=%s,reported_id=%s,reported_name=%s,comment=%s", _TAG, tagescape(_MATCHES[5]), _MATCHES[2], fieldescape(_MATCHES[1]), _MATCHES[4], fieldescape(_MATCHES[3]), fieldescape(_MATCHES[6]))]
+_MEASUREMENTS := [format("playerreports,servertag=%s,reason=%s reporter_id=%s,reporter_name=\"%s\",reported_id=%s,reported_name=\"%s\",comment=\"%s\"", _TAG, tagescape(_MATCHES[5]), _MATCHES[2], fieldescape(_MATCHES[1]), _MATCHES[4], fieldescape(_MATCHES[3]), fieldescape(_MATCHES[6]))]

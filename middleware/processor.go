@@ -85,7 +85,7 @@ func (processor *Processor) runTickCallback(callback TickCallback) {
 func (processor *Processor) Process(done chan struct{}, wg *sync.WaitGroup) {
 	var ticks int64
 
-	zap.S().Info("Starting up middlewarep rocessor")
+	zap.S().Info("Starting up middleware processor")
 	wg.Add(1)
 
 	for {

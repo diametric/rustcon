@@ -1,6 +1,3 @@
-json := import("json")
-fmt := import("fmt")
-
 gc := "false"
 if _MATCHES[5] == "[GARBAGE COLLECT]" {
     gc = "true"
