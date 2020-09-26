@@ -18,6 +18,7 @@ import (
 	"github.com/diametric/rustcon/stats"
 	"github.com/diametric/rustcon/version"
 	"github.com/diametric/rustcon/webrcon"
+	"github.com/gomodule/redigo/redis"
 )
 
 // CommandLineConfig options
@@ -39,6 +40,7 @@ type Config struct {
 	QueuesPrefix          string                   `json:"queues_prefix"`
 	IntervalCallbacks     []IntervalCallbackConfig `json:"interval_callbacks"`
 	StaticQueues          []string                 `json:"static_queues"`
+	DynamicQueueKey       string                   `json:"dynamic_queue_key"`
 	LoggingConfig         zap.Config               `json:"logging"`
 	MaxQueueSize          int                      `json:"max_queue_size"`
 	CallOnMessageOnInvoke bool                     `json:"call_onmessage_on_invoke"`
@@ -171,6 +173,26 @@ func buildOnConnectCallback(tag string, middleware middleware.Processor, cb Inte
 	}
 }
 
+func buildDynamicQueueCallback(queuekey string, queueprefix string, tag string, queuemax int, middleware middleware.Processor) webrcon.OnMessageCallback {
+	return webrcon.OnMessageCallback{
+		Callback: func(message []byte) {
+			queues, err := redis.Strings(middleware.Do("SMEMBERS", queuekey))
+			if err != nil {
+				zap.S().Errorf("Error getting dynamic queues: %s", err)
+				return
+			}
+			for _, queue := range queues {
+				fqueue := strings.ReplaceAll(fmt.Sprintf("%s:%s", queueprefix, queue), "{tag}", tag)
+
+				middleware.Do("MULTI")
+				middleware.Do("LTRIM", fqueue, 0, queuemax-2)
+				middleware.Do("LPUSH", fqueue, message)
+				middleware.Do("EXEC")
+			}
+		},
+	}
+}
+
 func buildQueueCallback(queue string, queuemax int, middleware middleware.Processor) webrcon.OnMessageCallback {
 	return webrcon.OnMessageCallback{
 		Callback: func(message []byte) {
@@ -291,6 +313,9 @@ func main() {
 				config.MaxQueueSize,
 				middleware))
 		}
+
+		// This is gross but whatever.
+		rcon.OnMessage(buildDynamicQueueCallback(config.DynamicQueueKey, config.QueuesPrefix, *opts.Tag, config.MaxQueueSize, middleware))
 
 		go middleware.Process(done, &wg)
 	}
