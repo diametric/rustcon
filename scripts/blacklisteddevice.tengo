@@ -1,0 +1,1 @@
+_MEASUREMENTS := [format("blacklisteddevicekicks,servertag=%s steamid=%s playername=\"%s\"", _MATCHES[1], _MATCHES[2])]
