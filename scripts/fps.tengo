@@ -5,3 +5,26 @@ parts := text.fields(_INPUT)
 
 _BUCKET := "sixty_days"
 _MEASUREMENTS := [format("serverfps,servertag=%s fps=%s", _TAG, parts[0])]
+
+// Monitoring example
+// Uncomment below, and update the webhook url to something relevant to enable.
+
+/*
+
+if int(parts[0]) < 5 {
+    if is_undefined(_GLOBALS["low_fps"]) {
+        _GLOBALS["low_fps"] = 1
+    } else {
+        _GLOBALS["low_fps"]++
+    }
+} else {
+    _GLOBALS["low_fps"] = 0
+}
+
+// Ping slack and discord server is has low fps for 10 seconds straight.
+if _GLOBALS["low_fps"] > 1 && _GLOBALS["low_fps"] % 10 == 0 {
+    slack_webhook("webhook url", format("LOW FPS on server %s! FPS = %s", _TAG, parts[0]))
+    discord_webhook("webhook url", format("LOW FPS! FPS = %s", parts[0]), _TAG)
+}
+
+*/
