@@ -3,6 +3,7 @@ package webrcon
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,21 +31,22 @@ type RconStats struct {
 
 // RconClient maintains the connection to the Rust server.
 type RconClient struct {
-	Connected             bool
-	CallOnMessageOnInvoke bool
-	OnConnectDelay        int
-	Stats                 RconStats
-	identifier            int
-	rconPath              string
-	con                   *websocket.Conn
-	callbacks             map[int]RconCallback
-	onconnect             []OnConnectCallback
-	onmessage             []OnMessageCallback
-	mu                    sync.Mutex // So many mutexes, there must be a better
-	cmu                   sync.Mutex // way..
-	cachemu               sync.Mutex
-	dcmu                  sync.Mutex
-	cache                 map[string]commandCache
+	Connected               bool
+	CallOnMessageOnInvoke   bool
+	IgnoreEmptyRconMessages bool
+	OnConnectDelay          int
+	Stats                   RconStats
+	identifier              int
+	rconPath                string
+	con                     *websocket.Conn
+	callbacks               map[int]RconCallback
+	onconnect               []OnConnectCallback
+	onmessage               []OnMessageCallback
+	mu                      sync.Mutex // So many mutexes, there must be a better
+	cmu                     sync.Mutex // way..
+	cachemu                 sync.Mutex
+	dcmu                    sync.Mutex
+	cache                   map[string]commandCache
 }
 
 type commandCache struct {
@@ -328,7 +330,11 @@ func (client *RconClient) rconReader(done chan struct{}, wg *sync.WaitGroup) {
 				client.cmu.Unlock()
 			} else {
 				client.cmu.Unlock()
-				zap.S().Errorf("No callback found for %d, this shouldn't happen. Message: %s", p.Identifier, p.Message)
+				if client.IgnoreEmptyRconMessages && strings.TrimSpace(p.Message) == "" {
+					zap.S().Debugf("No callback found for %d, message was empty.", p.Identifier)
+				} else {
+					zap.S().Errorf("No callback found for %d, this shouldn't happen. Message: %s", p.Identifier, p.Message)
+				}
 			}
 		} else {
 			sendOnMessage = true

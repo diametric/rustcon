@@ -35,19 +35,21 @@ type CommandLineConfig struct {
 
 // Config file definition
 type Config struct {
-	EnableRedisQueue      bool                     `json:"enable_redis_queue"`
-	EnableInfluxStats     bool                     `json:"enable_influx_stats"`
-	QueuesPrefix          string                   `json:"queues_prefix"`
-	IntervalCallbacks     []IntervalCallbackConfig `json:"interval_callbacks"`
-	StaticQueues          []string                 `json:"static_queues"`
-	DynamicQueueKey       string                   `json:"dynamic_queue_key"`
-	LoggingConfig         zap.Config               `json:"logging"`
-	MaxQueueSize          int                      `json:"max_queue_size"`
-	CallOnMessageOnInvoke bool                     `json:"call_onmessage_on_invoke"`
-	OnConnectDelay        int                      `json:"onconnect_delay"`
-	RedisConfig           RedisConfig              `json:"redis"`
-	InfluxConfig          InfluxConfig             `json:"influx"`
-	StatsConfig           StatsConfig              `json:"stats"`
+	EnableRedisQueue        bool                     `json:"enable_redis_queue"`
+	EnableInfluxStats       bool                     `json:"enable_influx_stats"`
+	QueuesPrefix            string                   `json:"queues_prefix"`
+	IntervalCallbacks       []IntervalCallbackConfig `json:"interval_callbacks"`
+	StaticQueues            []string                 `json:"static_queues"`
+	DynamicQueueKey         string                   `json:"dynamic_queue_key"`
+	CallbackQueueKey        string                   `json:"callback_queue_key"`
+	LoggingConfig           zap.Config               `json:"logging"`
+	MaxQueueSize            int                      `json:"max_queue_size"`
+	CallOnMessageOnInvoke   bool                     `json:"call_onmessage_on_invoke"`
+	IgnoreEmptyRconMessages bool                     `json:"ignore_empty_rcon_messages"`
+	OnConnectDelay          int                      `json:"onconnect_delay"`
+	RedisConfig             RedisConfig              `json:"redis"`
+	InfluxConfig            InfluxConfig             `json:"influx"`
+	StatsConfig             StatsConfig              `json:"stats"`
 }
 
 // StatsConfig definition
@@ -184,10 +186,16 @@ func buildDynamicQueueCallback(queuekey string, queueprefix string, tag string, 
 			for _, queue := range queues {
 				fqueue := strings.ReplaceAll(fmt.Sprintf("%s:%s", queueprefix, queue), "{tag}", tag)
 
-				middleware.Do("MULTI")
-				middleware.Do("LTRIM", fqueue, 0, queuemax-2)
-				middleware.Do("LPUSH", fqueue, message)
-				middleware.Do("EXEC")
+				conn, err := middleware.StartPipeline()
+				if err != nil {
+					zap.S().Errorf("Unable to start redis pipeline while processing queue callback: %s", err)
+					continue
+				}
+
+				conn.Send("LTRIM", fqueue, 0, queuemax-2)
+				conn.Send("LPUSH", fqueue, message)
+				conn.Do("EXEC")
+				conn.Close()
 			}
 		},
 	}
@@ -196,10 +204,16 @@ func buildDynamicQueueCallback(queuekey string, queueprefix string, tag string, 
 func buildQueueCallback(queue string, queuemax int, middleware middleware.Processor) webrcon.OnMessageCallback {
 	return webrcon.OnMessageCallback{
 		Callback: func(message []byte) {
-			middleware.Do("MULTI")
-			middleware.Do("LTRIM", queue, 0, queuemax-2)
-			middleware.Do("LPUSH", queue, message)
-			middleware.Do("EXEC")
+			conn, err := middleware.StartPipeline()
+			if err != nil {
+				zap.S().Errorf("Unable to start redis pipeline while processing queue callback: %s", err)
+				return
+			}
+			defer conn.Close()
+
+			conn.Send("LTRIM", queue, 0, queuemax-2)
+			conn.Send("LPUSH", queue, message)
+			conn.Do("EXEC")
 		},
 	}
 }
@@ -270,8 +284,9 @@ func main() {
 	}
 
 	rcon := webrcon.RconClient{
-		CallOnMessageOnInvoke: config.CallOnMessageOnInvoke,
-		OnConnectDelay:        config.OnConnectDelay}
+		IgnoreEmptyRconMessages: config.IgnoreEmptyRconMessages,
+		CallOnMessageOnInvoke:   config.CallOnMessageOnInvoke,
+		OnConnectDelay:          config.OnConnectDelay}
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -282,7 +297,11 @@ func main() {
 	rcon.InitClient(*opts.RconHost, *opts.RconPort, rconPassword)
 
 	if config.EnableRedisQueue {
-		middleware := middleware.Processor{Tag: *opts.Tag, Rcon: &rcon}
+		middleware := middleware.Processor{
+			Tag:              *opts.Tag,
+			Rcon:             &rcon,
+			CallbackQueueKey: strings.ReplaceAll(config.CallbackQueueKey, "{tag}", *opts.Tag)}
+
 		middleware.InitProcessor(
 			config.RedisConfig.Host,
 			config.RedisConfig.Port,
