@@ -42,6 +42,7 @@ type Config struct {
 	StaticQueues            []string                 `json:"static_queues"`
 	DynamicQueueKey         string                   `json:"dynamic_queue_key"`
 	CallbackQueueKey        string                   `json:"callback_queue_key"`
+	CallbackExpire          int                      `json:"callback_expire"`
 	LoggingConfig           zap.Config               `json:"logging"`
 	MaxQueueSize            int                      `json:"max_queue_size"`
 	CallOnMessageOnInvoke   bool                     `json:"call_onmessage_on_invoke"`
@@ -300,6 +301,7 @@ func main() {
 		middleware := middleware.Processor{
 			Tag:              *opts.Tag,
 			Rcon:             &rcon,
+			CallbackExpire:   config.CallbackExpire,
 			CallbackQueueKey: strings.ReplaceAll(config.CallbackQueueKey, "{tag}", *opts.Tag)}
 
 		middleware.InitProcessor(

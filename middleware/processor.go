@@ -17,6 +17,7 @@ type Processor struct {
 	Tag              string
 	Rcon             *webrcon.RconClient
 	CallbackQueueKey string
+	CallbackExpire   int
 	pool             *redis.Pool
 	tickcallbacks    []TickCallback
 }
@@ -113,7 +114,7 @@ func (processor *Processor) runTickCallback(callback TickCallback) {
 func (processor *Processor) buildRequestCallback(command string, id int) func(*webrcon.Response) {
 	return func(response *webrcon.Response) {
 		resultkey := fmt.Sprintf("%s:results:%d", processor.CallbackQueueKey, id)
-		_, err := processor.Do("SET", resultkey, response.Message)
+		_, err := processor.Do("SETEX", resultkey, processor.CallbackExpire, response.Message)
 		if err != nil {
 			zap.S().Errorf("Error writing to redis request callback response for command %s, id %d response %v: %s", command, id, response, err)
 		}

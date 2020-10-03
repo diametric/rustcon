@@ -56,6 +56,16 @@ For example, you can define a queue named *middleware:livebot* and create a disc
 
 All redis keys defined in the configuration will substitude the special variable `{tag}` with the tag supplied by the `-tag` command line argument.
 
+## Redis based RCON callback requests
+
+If you enable the redis middleware, you can also use rustcon to send callback requests to RCON through redis.
+
+By pushing a JSON structure to the defined `callback_queue_key` list, rustcon will run that command and set the results in a key defined by the ID passed in the JSON structure. Example:
+
+`LPUSH [callback_queue_key] {"id": 5, "command": "playerlist"}`
+
+The contents of the RCON command `playerlist` will be set into the key `[callback_queue_key]:results:5`
+
 # Quickstart
 
 1. Edit the configuration file with your InfluxDB and Redis credentials. If you have only one or the other, and don't desire that modules functionality, you can disable it with the `enable_influx_stats` and `enable_redis_queue` configuration options.  Keep in mind at least one of these must be true for rustcon to work.
