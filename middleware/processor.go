@@ -146,7 +146,11 @@ func (processor *Processor) processCallbackRequests() {
 			continue
 		}
 
-		processor.Rcon.SendCallback(r.Command, 0, processor.buildRequestCallback(r.Command, r.ID))
+		if r.ID == -1 {
+			processor.Rcon.Send(r.Command)
+		} else {
+			processor.Rcon.SendCallback(r.Command, 0, processor.buildRequestCallback(r.Command, r.ID))
+		}
 	}
 }
 
