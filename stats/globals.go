@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/d5/tengo"
+	"github.com/d5/tengo/v2"
 )
 
 var globalsValue map[string]tengo.Object = make(map[string]tengo.Object)

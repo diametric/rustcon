@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/d5/tengo"
+	"github.com/d5/tengo/v2"
 )
 
 // DiscordWebhookData contains a simple webhook message, no embed support (yet, maybe I dunno)

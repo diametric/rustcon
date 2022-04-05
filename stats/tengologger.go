@@ -3,7 +3,7 @@ package stats
 import (
 	"strings"
 
-	"github.com/d5/tengo"
+	"github.com/d5/tengo/v2"
 	"go.uber.org/zap"
 )
 

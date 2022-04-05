@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/d5/tengo"
-	"github.com/d5/tengo/stdlib"
+	"github.com/d5/tengo/v2"
+	"github.com/d5/tengo/v2/stdlib"
 	"go.uber.org/zap"
 
 	"github.com/diametric/rustcon/webrcon"
@@ -259,7 +259,7 @@ func (client *Client) runInternalStat(stat *InternalStats) {
 	runtimeMem["sys"] = int64(m.Sys)
 	runtimeMem["numGC"] = int64(m.NumGC)
 
-	stat.script.Set("_SCRIPT_TYPE", "internal")
+	_ = stat.script.Set("_SCRIPT_TYPE", "internal")
 	err := stat.script.Set("_RUNTIME_STATS", runtimeMem)
 	if err != nil {
 		zap.S().Errorf("ERROR: Couldn't populate _RUNTIME_STATS: %s", err)

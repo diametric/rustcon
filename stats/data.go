@@ -3,7 +3,7 @@ package stats
 import (
 	"regexp"
 
-	"github.com/d5/tengo"
+	"github.com/d5/tengo/v2"
 	"github.com/diametric/rustcon/webrcon"
 	influxdb2 "github.com/influxdata/influxdb-client-go"
 )

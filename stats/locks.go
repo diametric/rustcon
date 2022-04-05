@@ -3,7 +3,7 @@ package stats
 import (
 	"sync"
 
-	"github.com/d5/tengo"
+	"github.com/d5/tengo/v2"
 )
 
 var tengoLock sync.Mutex
